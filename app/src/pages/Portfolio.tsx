@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useWallet } from '@solana/wallet-adapter-react'
 import { PublicKey } from '@solana/web3.js'
-import { useMySubscriptions, useProgram } from '@/lib/hooks'
+import { useEarning, useMySubscriptions, useProgram } from '@/lib/hooks'
+import { Digits } from '@/ui/fx'
 import { allotment, fetchOffer, yieldShare, type Offer, type Subscription } from 'allot-sdk'
 import { dateLabel, money, units } from '@/lib/format'
 import { Item, Page, Reveal, Stagger } from '@/ui/motion'
@@ -73,7 +74,7 @@ export function Portfolio() {
                     <Cell k="Requested" v={`${units(Number(s.units))} units`} />
                     <Cell k={s.settled ? 'Allotted' : 'If closed now'} v={`${units(Number(a))} units`} />
                     <Cell k={s.settled ? 'Refunded' : 'Likely refund'} v={money(s.settled ? s.refund : s.amount - a * o.unitPrice, o.mintDecimals)} />
-                    <Cell k="Yield share" v={money(ys, o.mintDecimals, 'USDC', 4)} />
+                    {!s.settled && o.status === 'open' && o.inStrategy > 0n ? <LiveYield offer={o} sub={s} /> : <Cell k="Yield share" v={money(ys, o.mintDecimals, 'USDC', 4)} />}
                   </dl>
                 </Link>
               )
@@ -91,6 +92,22 @@ function Tile({ label, value }: { label: string; value: string }) {
       <p className="text-xs text-mute">{label}</p>
       <p className="display mt-2 text-3xl tabular">{value}</p>
     </Item>
+  )
+}
+
+function LiveYield({ offer, sub }: { offer: Offer; sub: Subscription }) {
+  const earning = useEarning(offer)
+  const share = yieldShare({ ...offer, yieldTotal: BigInt(Math.floor(earning?.earned ?? 0)) }, sub.weight)
+  return (
+    <div>
+      <dt className="flex items-center gap-2 text-mint">
+        <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-mint" />
+        Earning now
+      </dt>
+      <dd className="mono mt-1">
+        <Digits value={(Number(share) / 10 ** offer.mintDecimals).toFixed(6)} /> <span className="text-mute">USDC</span>
+      </dd>
+    </div>
   )
 }
 
