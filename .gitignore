@@ -10,8 +10,6 @@ dist
 .env
 .env.*
 !.env.example
-.claude
-CLAUDE.md
 .vercel
 keeper/.state
 test-ledger
