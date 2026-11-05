@@ -187,7 +187,7 @@ export function Issue() {
           )}
         </form>
 
-        <div className="md:col-span-5">
+        <div className="min-w-0 md:col-span-5">
           <h2 className="display text-3xl">Your offers</h2>
           <div className="mt-4 space-y-4">
             {mine.length === 0 && <p className="text-sm text-mute">None yet.</p>}

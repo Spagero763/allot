@@ -42,7 +42,7 @@ function OfferView({ offer, subs, now, reload }: { offer: Offer; subs: Subscript
       <section className="mx-auto max-w-6xl px-4 pt-10 md:px-6 md:pt-16">
         <Link to="/" className="mono text-xs uppercase tracking-[0.2em] text-mute hover:text-paper">← offers</Link>
         <div className="mt-6 grid gap-8 md:grid-cols-12">
-          <div className="md:col-span-7">
+          <div className="min-w-0 md:col-span-7">
             <div className="flex items-center gap-3">
               <span className="mono text-xs uppercase tracking-[0.2em] text-mute">{offer.symbol}</span>
               <Status offer={offer} />
@@ -109,7 +109,7 @@ function OfferView({ offer, subs, now, reload }: { offer: Offer; subs: Subscript
             </div>
           </div>
 
-          <div className="md:col-span-5">
+          <div className="min-w-0 md:col-span-5">
             <div className="sticky top-24 space-y-4">
               <SubscribePanel offer={offer} now={now} reload={reload} />
               <Operations offer={offer} closable={closable} pending={pending} reload={reload} />
