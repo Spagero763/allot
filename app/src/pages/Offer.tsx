@@ -56,7 +56,7 @@ function OfferView({ offer, subs, now, reload }: { offer: Offer; subs: Subscript
             </FadeUp>
 
             <FadeUp delay={0.8} className="mt-8">
-              <BookVisual data={book} mode={offer.status === 'open' ? 'live' : 'once'} />
+              <BookVisual bare data={book} mode={offer.status === 'open' ? 'live' : 'once'} />
             </FadeUp>
 
             <dl className="mt-4 grid grid-cols-2 gap-3 text-sm md:grid-cols-4">

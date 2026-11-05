@@ -22,7 +22,7 @@ type Mode = 'loop' | 'scrub' | 'once' | 'live'
 
 const alphas = [0.94, 0.6, 0.8, 0.48, 0.88, 0.66, 0.74, 0.54, 0.84]
 
-export function BookVisual({ data, mode, className, onTimeline, settled = false }: { data: BookData; mode: Mode; className?: string; onTimeline?: (tl: gsap.core.Timeline) => void; settled?: boolean }) {
+export function BookVisual({ data, mode, className, onTimeline, settled = false, bare = false }: { data: BookData; mode: Mode; className?: string; onTimeline?: (tl: gsap.core.Timeline) => void; settled?: boolean; bare?: boolean }) {
   const root = useRef<HTMLDivElement>(null)
   const requested = data.segs.reduce((a, s) => a + s.requested, 0)
   const allotted = data.segs.reduce((a, s) => a + s.allotted, 0)
@@ -35,6 +35,7 @@ export function BookVisual({ data, mode, className, onTimeline, settled = false 
     .filter((s) => s.back > 0)
     .sort((a, b) => b.back - a.back)
     .slice(0, 3)
+  const projected = mode === 'live' && !settled
   const signature = data.segs.map((s) => `${s.id}:${s.requested}:${s.allotted}`).join('|')
 
   useLayoutEffect(() => {
@@ -68,8 +69,8 @@ export function BookVisual({ data, mode, className, onTimeline, settled = false 
         gsap.set(chipEls, { autoAlpha: 0 })
         n.cov = data.total ? requested / data.total : 0
         n.req = requested
-        n.alo = final ? allotted : 0
-        n.ref = final ? refunded : 0
+        n.alo = allotted
+        n.ref = refunded
         write()
         return
       }
@@ -115,8 +116,8 @@ export function BookVisual({ data, mode, className, onTimeline, settled = false 
     <div ref={root} className={`card relative p-5 md:p-7 ${className ?? ''}`}>
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="mono text-[11px] uppercase tracking-[0.2em] text-mute">{data.symbol} · book</p>
-          <p className="display mt-1 text-2xl md:text-3xl">{data.name}</p>
+          <p className="mono text-[11px] uppercase tracking-[0.2em] text-mute">{bare ? 'The book' : `${data.symbol} · book`}</p>
+          {!bare && <p className="display mt-1 text-2xl md:text-3xl">{data.name}</p>}
         </div>
         <div className="relative h-7 w-20 shrink-0">
           <span data-open className="mono absolute right-0 top-0 rounded-full bg-mint/15 px-3 py-1 text-xs uppercase tracking-wider text-mint">
@@ -169,10 +170,10 @@ export function BookVisual({ data, mode, className, onTimeline, settled = false 
       </div>
 
       <div className="mt-4 grid grid-cols-3 gap-2 md:gap-3">
-        <Tile label="Allotted units">
+        <Tile label={projected ? 'Would be allotted' : 'Allotted units'}>
           <span data-allotted>0</span>
         </Tile>
-        <Tile label={`Refunded ${data.currency}`}>
+        <Tile label={projected ? `Would go back, ${data.currency}` : `Refunded ${data.currency}`}>
           <span data-refunded>0</span>
         </Tile>
         <Tile label="Settled in">one tx</Tile>
