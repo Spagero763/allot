@@ -1,0 +1,15 @@
+{
+  "name": "allot",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build:program": "anchor build && pnpm idl",
+    "idl": "cp target/idl/allot.json sdk/src/idl/allot.json && cp target/types/allot.ts sdk/src/idl/allot.ts",
+    "test": "cargo test",
+    "dev": "pnpm --filter app dev",
+    "build": "pnpm --filter app build",
+    "seed": "pnpm --filter keeper seed",
+    "keeper": "pnpm --filter keeper start",
+    "e2e": "pnpm --filter keeper e2e"
+  }
+}

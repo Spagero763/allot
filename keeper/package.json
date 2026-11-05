@@ -1,0 +1,21 @@
+{
+  "name": "keeper",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "tsx src/keeper.ts",
+    "seed": "tsx src/seed.ts",
+    "e2e": "tsx src/e2e.ts"
+  },
+  "dependencies": {
+    "@coral-xyz/anchor": "^0.32.1",
+    "@solana/spl-token": "^0.4.15",
+    "@solana/web3.js": "^1.99.0",
+    "allot-sdk": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^24.19.2",
+    "tsx": "^4.20.0",
+    "typescript": "~7.0.2"
+  }
+}
