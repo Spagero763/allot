@@ -75,6 +75,10 @@ export async function tick() {
 
 if (process.argv[1]?.endsWith('keeper.ts')) {
   console.log('keeper', keeper.publicKey.toBase58())
+  if (process.argv.includes('--once')) {
+    await tick()
+    process.exit(0)
+  }
   for (;;) {
     await tick().catch((e) => console.error((e as Error).message))
     await sleep(INTERVAL)

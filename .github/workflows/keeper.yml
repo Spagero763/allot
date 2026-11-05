@@ -1,0 +1,34 @@
+name: keeper
+
+on:
+  schedule:
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: keeper
+  cancel-in-progress: false
+
+jobs:
+  tick:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Settle anything that is due
+        env:
+          RPC_URL: ${{ secrets.RPC_URL }}
+          KEEPER_KEY: ${{ secrets.KEEPER_KEY }}
+        run: |
+          umask 077
+          printf '%s' "$KEEPER_KEY" > "$RUNNER_TEMP/keeper.json"
+          KEYPAIR="$RUNNER_TEMP/keeper.json" pnpm --filter keeper exec tsx src/keeper.ts --once
+          rm -f "$RUNNER_TEMP/keeper.json"
