@@ -18,6 +18,14 @@ pub const BPS: u64 = 10_000;
 #[constant]
 pub const MAX_FEE_BPS: u16 = 500;
 
+#[constant]
+pub const SWEEP_RESERVE_BPS: u64 = 1_000;
+
+pub const LENDERS: [Pubkey; 2] = [
+    pubkey!("jup3YeL8QhtSx1e253b2FDvsMNC87fDrgQZivbrndc9"),
+    pubkey!("7tjE28izRUjzmxC1QNXnNwcc4N82CNYCexf3k8mw67s3"),
+];
+
 pub const NAME_LEN: usize = 32;
 pub const SYMBOL_LEN: usize = 10;
 pub const URI_LEN: usize = 128;

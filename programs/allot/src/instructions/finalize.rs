@@ -59,7 +59,7 @@ pub fn handle_finalize(ctx: Context<Finalize>) -> Result<()> {
     } else {
         0
     };
-    let fee = math::fee(proceeds, offer.fee_bps).ok_or(AllotError::Overflow)?;
+    let fee = math::fee(proceeds, offer.fee_bps).ok_or(AllotError::Overflow)?.min(ctx.accounts.vault.amount);
     let to_treasury = ctx.accounts.vault.amount.checked_sub(fee).ok_or(AllotError::Overflow)?;
 
     let issuer = offer.issuer;

@@ -5,7 +5,8 @@
   "scripts": {
     "start": "tsx src/keeper.ts",
     "seed": "tsx src/seed.ts",
-    "e2e": "tsx src/e2e.ts"
+    "e2e": "tsx src/e2e.ts",
+    "e2e:lend": "tsx src/e2e-lend.ts"
   },
   "dependencies": {
     "@coral-xyz/anchor": "^0.32.1",

@@ -57,4 +57,12 @@ pub mod allot {
     pub fn finalize(ctx: Context<Finalize>) -> Result<()> {
         handle_finalize(ctx)
     }
+
+    pub fn sweep<'info>(ctx: Context<'info, Sweep<'info>>, amount: u64) -> Result<()> {
+        handle_sweep(ctx, amount)
+    }
+
+    pub fn unsweep<'info>(ctx: Context<'info, Unsweep<'info>>) -> Result<()> {
+        handle_unsweep(ctx)
+    }
 }

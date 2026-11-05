@@ -258,3 +258,62 @@ fn receipt_mint_carries_metadata() {
     assert!(data.contains("HTA"));
     assert_eq!(w.offer(&offer).receipt_mint, mint);
 }
+
+#[test]
+fn a_shortfall_is_shared_pro_rata_on_a_failed_raise() {
+    let mut w = World::new();
+    w.init_config(50);
+    let mut args = w.offer_args(1);
+    args.min_raise_units = 900;
+    let offer = w.create_offer(args).unwrap();
+    let a = w.subscriber(usdc(100));
+    let b = w.subscriber(usdc(300));
+    w.subscribe(&offer, &a, 100).unwrap();
+    w.subscribe(&offer, &b, 300).unwrap();
+
+    w.drain_vault(&offer, usdc(40));
+    w.advance(3_601);
+    w.close_offer(&offer).unwrap();
+    let o = w.offer(&offer);
+    assert!(!o.success);
+    assert_eq!(o.loss, usdc(40));
+    assert_eq!(o.yield_total, 0);
+
+    w.allot(&offer, &a.pubkey()).unwrap();
+    w.allot(&offer, &b.pubkey()).unwrap();
+    assert_eq!(w.token_balance(&a.pubkey()), usdc(90));
+    assert_eq!(w.token_balance(&b.pubkey()), usdc(270));
+    w.finalize(&offer).unwrap();
+    assert_eq!(w.balance(&w.vault_of(&offer)), 0);
+}
+
+#[test]
+fn a_shortfall_never_blocks_settlement_of_a_filled_book() {
+    let mut w = World::new();
+    w.init_config(50);
+    let mut args = w.offer_args(1);
+    args.floor_units = 50;
+    let offer = w.create_offer(args).unwrap();
+    let subs: Vec<_> = [900u64, 700, 50, 350].iter().map(|u| (w.subscriber(usdc(*u)), *u)).collect();
+    for (k, units) in &subs {
+        w.subscribe(&offer, k, *units).unwrap();
+    }
+
+    w.drain_vault(&offer, 1_234_567);
+    w.advance(3_601);
+    w.close_offer(&offer).unwrap();
+    assert_eq!(w.offer(&offer).loss, 1_234_567);
+
+    let mut paid = 0;
+    for (k, _) in &subs {
+        w.allot(&offer, &k.pubkey()).unwrap();
+        paid += w.token_balance(&k.pubkey());
+    }
+    w.finalize(&offer).unwrap();
+    let o = w.offer(&offer);
+    assert_eq!(o.status, OfferStatus::Settled);
+    let fee = w.token_balance(&w.fee_destination.pubkey());
+    let treasury = w.token_balance(&w.treasury.pubkey());
+    assert_eq!(paid + fee + treasury, usdc(2_000) - 1_234_567);
+    assert_eq!(w.balance(&w.vault_of(&offer)), 0);
+}

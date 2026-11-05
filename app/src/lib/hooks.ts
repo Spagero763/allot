@@ -1,7 +1,7 @@
 import { useAnchorWallet, useConnection, useWallet } from '@solana/wallet-adapter-react'
 import { PublicKey, Transaction, type TransactionInstruction } from '@solana/web3.js'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { fetchOffer, fetchOffers, fetchSubscription, fetchSubscriptionsBy, fetchSubscriptionsOf, getProgram, type Offer, type Subscription } from 'allot-sdk'
+import { fetchOffer, fetchOffers, fetchSubscription, fetchSubscriptionsBy, fetchSubscriptionsOf, getProgram, strategyValue, type Offer, type Subscription } from 'allot-sdk'
 import type { Wallet } from '@coral-xyz/anchor'
 
 export function useProgram() {
@@ -94,6 +94,39 @@ export function useMySubscriptions() {
     load()
   }, [load])
   return { subs, reload: load }
+}
+
+export function useEarning(offer: Offer, poll = 6000): { earned: number; perSecond: number } | null {
+  const program = useProgram()
+  const samples = useRef<{ at: number; value: number }[]>([])
+  const [, bump] = useState(0)
+  const key = offer.key.toBase58()
+  const lent = Number(offer.inStrategy)
+  useEffect(() => {
+    samples.current = []
+    if (lent === 0) return
+    let live = true
+    const read = async () => {
+      const value = await strategyValue(program, offer).catch(() => null)
+      if (!live || value === null) return
+      const sample = { at: performance.now(), value: Number(value) }
+      samples.current = [samples.current[0] ?? sample, sample]
+      bump((n) => n + 1)
+    }
+    read()
+    const id = setInterval(read, poll)
+    const frame = setInterval(() => bump((n) => n + 1), 250)
+    return () => {
+      live = false
+      clearInterval(id)
+      clearInterval(frame)
+    }
+  }, [program, key, lent, poll])
+  const [first, last] = [samples.current[0], samples.current[samples.current.length - 1]]
+  if (!last) return null
+  const perSecond = first && last.at > first.at ? Math.max(0, ((last.value - first.value) / (last.at - first.at)) * 1000) : 0
+  const value = last.value + (perSecond * (performance.now() - last.at)) / 1000
+  return { earned: Math.max(0, value - lent), perSecond }
 }
 
 export type TxState = { status: 'idle' } | { status: 'signing' } | { status: 'sending' } | { status: 'done'; sig: string } | { status: 'error'; message: string }

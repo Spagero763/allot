@@ -39,6 +39,14 @@ pub fn yield_share(yield_total: u64, weight: u128, weight_total: u128) -> Option
     u64::try_from(v).ok()
 }
 
+pub fn haircut(loss: u64, amount: u64, principal: u64) -> Option<u64> {
+    if loss == 0 || principal == 0 {
+        return Some(0);
+    }
+    let v = (loss as u128).checked_mul(amount as u128)?.div_ceil(principal as u128);
+    u64::try_from(v).ok()
+}
+
 pub fn weight(amount: u64, committed_ts: i64, close_ts: i64) -> u128 {
     let seconds = close_ts.saturating_sub(committed_ts).max(0) as u128;
     (amount as u128) * seconds
@@ -55,6 +63,16 @@ mod tests {
 
     fn book(total: u64, requested: u64, floor: u64, floor_demand: u64) -> Book {
         Book { total_units: total, units_requested: requested, floor_units: floor, floor_demand }
+    }
+
+    #[test]
+    fn haircut_rounds_up_and_covers_the_loss() {
+        assert_eq!(haircut(0, 500, 1_000), Some(0));
+        assert_eq!(haircut(1, 500, 1_000), Some(1));
+        assert_eq!(haircut(100, 250, 1_000), Some(25));
+        let parts = [333u64, 333, 334];
+        let taken: u64 = parts.iter().map(|p| haircut(7, *p, 1_000).unwrap()).sum();
+        assert!(taken >= 7);
     }
 
     #[test]

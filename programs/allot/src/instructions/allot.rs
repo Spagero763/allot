@@ -78,7 +78,8 @@ pub fn handle_allot(ctx: Context<Allot>) -> Result<()> {
         .checked_mul(offer.unit_price as u128)
         .and_then(|v| u64::try_from(v).ok())
         .ok_or(AllotError::Overflow)?;
-    let refund = sub.amount.checked_sub(kept).ok_or(AllotError::Overflow)?;
+    let haircut = math::haircut(offer.loss, sub.amount, offer.principal).ok_or(AllotError::Overflow)?;
+    let refund = sub.amount.checked_sub(kept).ok_or(AllotError::Overflow)?.saturating_sub(haircut);
     let yield_share = math::yield_share(offer.yield_total, sub.weight, offer.weight_total)
         .ok_or(AllotError::Overflow)?;
 

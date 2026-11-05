@@ -59,6 +59,7 @@ pub struct Offer {
 
     pub yield_total: u64,
     pub yield_paid: u64,
+    pub loss: u64,
     pub units_allotted: u64,
     pub processed: u32,
     pub closed_ts: i64,
@@ -130,6 +131,7 @@ pub struct OfferClosed {
     pub units_requested: u64,
     pub principal: u64,
     pub yield_total: u64,
+    pub loss: u64,
 }
 
 #[event]
@@ -148,4 +150,18 @@ pub struct OfferSettled {
     pub proceeds: u64,
     pub fee: u64,
     pub units_allotted: u64,
+}
+
+#[event]
+pub struct Swept {
+    pub offer: Pubkey,
+    pub amount: u64,
+    pub in_strategy: u64,
+}
+
+#[event]
+pub struct Unswept {
+    pub offer: Pubkey,
+    pub deployed: u64,
+    pub returned: u64,
 }

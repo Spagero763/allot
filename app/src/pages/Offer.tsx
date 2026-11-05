@@ -3,7 +3,7 @@ import { Link, useParams } from 'react-router-dom'
 import { useWallet } from '@solana/wallet-adapter-react'
 import { AnimatePresence, motion } from 'motion/react'
 import { allotment, allotIx, cancelOfferIx, cancelSubscriptionIx, closeOfferIx, finalizeIx, subscribeIx, yieldShare, type Offer, type Subscription } from 'allot-sdk'
-import { useMySubscription, useNow, useOffer, useProgram, useSend } from '@/lib/hooks'
+import { useEarning, useMySubscription, useNow, useOffer, useProgram, useSend } from '@/lib/hooks'
 import { countdown, dateLabel, explorer, explorerAddress, money, short, units } from '@/lib/format'
 import { Page, ease } from '@/ui/motion'
 import { BookVisual } from '@/ui/BookVisual'
@@ -36,6 +36,8 @@ function OfferView({ offer, subs, now, reload }: { offer: Offer; subs: Subscript
   const raise = offer.totalUnits * offer.unitPrice
   const closable = offer.status === 'open' && now >= offer.closeTs
   const pending = subs.filter((s) => !s.settled)
+  const earning = useEarning(offer)
+  const accrued = BigInt(Math.floor(earning?.earned ?? 0))
 
   return (
     <Page>
@@ -63,8 +65,14 @@ function OfferView({ offer, subs, now, reload }: { offer: Offer; subs: Subscript
               <Fact k={offer.status === 'open' ? (cd.done ? 'Ready to close' : 'Closes in') : 'Closed'} v={offer.status === 'open' ? <Digits value={cd.label} /> : dateLabel(offer.closedTs || offer.closeTs)} />
               <Fact k="Committed" v={money(offer.principal, offer.mintDecimals, sym)} />
               <Fact k="Min raise" v={offer.minRaiseUnits === 0n ? 'none' : `${units(Number(offer.minRaiseUnits))} units`} />
-              <Fact k="While open" v={offer.strategy === 'jupiterLend' ? 'Lent on Jupiter' : 'Held in vault'} />
+              {offer.status !== 'open' && offer.yieldTotal > 0n ? (
+                <Fact k="Earned while open" v={money(offer.yieldTotal, offer.mintDecimals, sym, 4)} />
+              ) : (
+                <Fact k="While open" v={offer.strategy === 'jupiterLend' ? 'Lent on Jupiter' : 'Held in vault'} />
+              )}
             </dl>
+
+            {earning && offer.status === 'open' && <Earning offer={offer} earned={earning.earned} perSecond={earning.perSecond} sym={sym} />}
 
             <Lifecycle offer={offer} now={now} />
 
@@ -111,7 +119,7 @@ function OfferView({ offer, subs, now, reload }: { offer: Offer; subs: Subscript
 
           <div className="min-w-0 md:col-span-5">
             <div className="sticky top-24 space-y-4">
-              <SubscribePanel offer={offer} now={now} reload={reload} />
+              <SubscribePanel offer={offer} now={now} reload={reload} accrued={accrued} />
               <Operations offer={offer} closable={closable} pending={pending} reload={reload} />
               <div className="card p-5 text-xs text-mute">
                 <p>Offer account</p>
@@ -128,6 +136,51 @@ function OfferView({ offer, subs, now, reload }: { offer: Offer; subs: Subscript
         </div>
       </section>
     </Page>
+  )
+}
+
+function Earning({ offer, earned, perSecond, sym }: { offer: Offer; earned: number; perSecond: number; sym: string }) {
+  const lent = Number(offer.inStrategy)
+  const rate = lent > 0 ? (perSecond * 31_536_000 * 100) / lent : 0
+  const value = (earned / 10 ** offer.mintDecimals).toFixed(6)
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 16 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.7, ease }}
+      className="relative mt-3 overflow-hidden rounded-2xl border border-mint/25 bg-mint/[0.04] px-5 py-4"
+    >
+      <motion.span
+        aria-hidden
+        className="absolute inset-y-0 w-1/3 bg-gradient-to-r from-transparent via-mint/10 to-transparent"
+        animate={{ x: ['-120%', '420%'] }}
+        transition={{ duration: 3.6, ease: 'linear', repeat: Infinity }}
+      />
+      <div className="relative flex flex-wrap items-end justify-between gap-x-8 gap-y-3">
+        <div>
+          <p className="flex items-center gap-2 text-xs text-mint">
+            <span className="relative flex h-2 w-2">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-mint/60" />
+              <span className="relative inline-flex h-2 w-2 rounded-full bg-mint" />
+            </span>
+            Earning for subscribers right now
+          </p>
+          <p className="mono mt-2 text-2xl text-paper md:text-3xl">
+            <Digits value={value} /> <span className="text-base text-mute">{sym}</span>
+          </p>
+        </div>
+        <dl className="flex gap-8 text-sm">
+          <div>
+            <dt className="text-xs text-mute">Lent on Jupiter</dt>
+            <dd className="mono mt-1 text-paper">{money(offer.inStrategy, offer.mintDecimals, sym)}</dd>
+          </div>
+          <div>
+            <dt className="text-xs text-mute">Current rate</dt>
+            <dd className="mono mt-1 text-paper">{rate > 0 ? `${rate.toFixed(2)}% a year` : 'measuring'}</dd>
+          </div>
+        </dl>
+      </div>
+    </motion.div>
   )
 }
 
@@ -165,7 +218,7 @@ function Lifecycle({ offer, now }: { offer: Offer; now: number }) {
   )
 }
 
-function SubscribePanel({ offer, now, reload }: { offer: Offer; now: number; reload: () => void }) {
+function SubscribePanel({ offer, now, reload, accrued }: { offer: Offer; now: number; reload: () => void; accrued: bigint }) {
   const { publicKey } = useWallet()
   const program = useProgram()
   const { send, state, reset } = useSend()
@@ -208,7 +261,7 @@ function SubscribePanel({ offer, now, reload }: { offer: Offer; now: number; rel
   if (sub) {
     const a = sub.settled ? sub.allottedUnits : allotment(offer, sub.units)
     const refund = sub.settled ? sub.refund : sub.amount - a * offer.unitPrice
-    const ys = sub.settled ? sub.yieldShare : yieldShare(offer, sub.weight)
+    const ys = sub.settled ? sub.yieldShare : yieldShare(offer.status === 'open' ? { ...offer, yieldTotal: accrued } : offer, sub.weight)
     return (
       <div className="card p-6">
         <p className="mono text-xs uppercase tracking-[0.2em] text-mute">Your position</p>
@@ -217,7 +270,7 @@ function SubscribePanel({ offer, now, reload }: { offer: Offer; now: number; rel
         <dl className="mt-5 space-y-2 text-sm">
           <Row k={sub.settled ? 'Allotted' : 'If the book closed now'} v={`${units(Number(a))} units`} />
           <Row k="Refund" v={money(refund, offer.mintDecimals, sym)} />
-          <Row k="Yield share" v={money(ys, offer.mintDecimals, sym, 4)} />
+          <Row k={sub.settled ? 'Yield share' : 'Yield share so far'} v={money(ys, offer.mintDecimals, sym, 4)} />
           {sub.settled && <Row k="Receipts" v={`${units(Number(sub.allottedUnits))} ${offer.symbol}`} />}
         </dl>
         {open && (

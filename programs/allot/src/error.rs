@@ -30,6 +30,14 @@ pub enum AllotError {
     Unprocessed,
     #[msg("account does not belong to this offer")]
     WrongOffer,
+    #[msg("signer may not do this")]
+    NotAuthorized,
+    #[msg("lending program is not recognised")]
+    UnknownLender,
+    #[msg("sweep would leave the vault below its reserve")]
+    ReserveTooLow,
+    #[msg("strategy balances did not move as expected")]
+    StrategyMismatch,
     #[msg("arithmetic overflow")]
     Overflow,
 }

@@ -23,6 +23,8 @@ const instructions = [
   ['create_offer', 'issuer', 'opens the book, creates vault and receipt mint'],
   ['subscribe', 'subscriber', 'moves units × price into the vault'],
   ['cancel_subscription', 'subscriber', 'returns the principal while the book is open'],
+  ['sweep', 'issuer or admin', 'lends idle vault balance on Jupiter, keeping a reserve'],
+  ['unsweep', 'issuer, subscriber, or anyone at close', 'redeems the whole position back to the vault'],
   ['close_offer', 'anyone', 'after the close; records yield and whether the raise succeeded'],
   ['allot', 'anyone', 'per subscription; refund, yield share and receipts in one transaction'],
   ['finalize', 'anyone', 'fee to the protocol, proceeds to the treasury'],

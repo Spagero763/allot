@@ -10,6 +10,9 @@
     "build": "pnpm --filter app build",
     "seed": "pnpm --filter keeper seed",
     "keeper": "pnpm --filter keeper start",
-    "e2e": "pnpm --filter keeper e2e"
+    "e2e": "pnpm --filter keeper e2e",
+    "e2e:lend": "pnpm --filter keeper e2e:lend",
+    "fixtures": "scripts/fetch-jupiter-fixtures.sh",
+    "validator": "scripts/local-validator.sh"
   }
 }

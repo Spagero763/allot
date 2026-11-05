@@ -31,6 +31,7 @@ pub fn seal(offer: &mut Offer, key: Pubkey, vault_amount: u64, success: bool, st
     require!(offer.in_strategy == 0, AllotError::StrategyNotEmpty);
     offer.success = success;
     offer.yield_total = vault_amount.saturating_sub(offer.principal);
+    offer.loss = offer.principal.saturating_sub(vault_amount);
     offer.status = status;
     offer.closed_ts = now;
     emit!(OfferClosed {
@@ -39,6 +40,7 @@ pub fn seal(offer: &mut Offer, key: Pubkey, vault_amount: u64, success: bool, st
         units_requested: offer.units_requested,
         principal: offer.principal,
         yield_total: offer.yield_total,
+        loss: offer.loss,
     });
     Ok(())
 }

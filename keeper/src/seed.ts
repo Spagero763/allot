@@ -1,5 +1,5 @@
 import { Keypair, PublicKey, SystemProgram } from '@solana/web3.js'
-import { configPda, createOfferIx, fetchOffer, offerPda, subscribeIx, subscriptionPda, type Strategy } from 'allot-sdk'
+import { LEND, configPda, createOfferIx, fetchOffer, offerPda, subscribeIx, subscriptionPda, type Strategy } from 'allot-sdk'
 import { writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -19,6 +19,16 @@ if (!(await program.account.config.fetchNullable(configPda()))) {
   )
   console.log('config created')
 }
+
+const forked = process.env.MINT
+if (forked && state.mint !== forked) {
+  state.mint = forked
+  state.mintAuthority = [...payer.secretKey]
+  state.subscribers = undefined
+  state.offers = {}
+  writeState(state)
+}
+const lends = Boolean(forked) && Boolean((await connection.getAccountInfo(LEND.lending))?.executable)
 
 if (!state.mint || !(await connection.getAccountInfo(pk(state.mint)))) {
   const authority = Keypair.generate()
@@ -73,9 +83,12 @@ interface Book {
   strategy?: Strategy
 }
 
+const day = 60 * 60 * 24
+const local = CLUSTER === 'localnet'
+
 const books: Book[] = [
-  { slug: 'kta', name: 'Kuramo Terminals Series A', symbol: 'KTA', price: 1, units: 250_000n, min: 10n, floor: 200n, minRaise: 0n, seconds: 60 * 50, requests: [120_000n, 85_000n, 200n, 64_000n, 1_500n, 150_000n, 90n, 42_000n, 180_000n] },
-  { slug: 'sgn', name: 'Savannah Grid Notes 2028', symbol: 'SGN', price: 5, units: 40_000n, min: 5n, floor: 20n, minRaise: 10_000n, seconds: 60 * 60 * 72, requests: [6_000n, 20n, 4_500n, 1_200n] },
+  { slug: 'kta', name: 'Kuramo Terminals Series A', symbol: 'KTA', price: 1, units: 250_000n, min: 10n, floor: 200n, minRaise: 0n, seconds: local ? 6 * 60 * 60 : 30 * day, requests: [120_000n, 85_000n, 200n, 64_000n, 1_500n, 150_000n, 90n, 42_000n, 180_000n], strategy: lends ? 'jupiterLend' : 'idle' },
+  { slug: 'sgn', name: 'Savannah Grid Notes 2028', symbol: 'SGN', price: 5, units: 40_000n, min: 5n, floor: 20n, minRaise: 10_000n, seconds: local ? 3 * day : 45 * day, requests: [6_000n, 20n, 4_500n, 1_200n] },
   { slug: 'acf', name: 'Adire Collective Fund I', symbol: 'ACF', price: 2, units: 20_000n, min: 10n, floor: 100n, minRaise: 0n, seconds: 16, requests: [9_000n, 14_000n, 100n, 6_500n, 7_000n, 50n] },
   { slug: 'mcc', name: 'Mangrove Cold Chain', symbol: 'MCC', price: 10, units: 8_000n, min: 1n, floor: 0n, minRaise: 6_000n, seconds: 16, requests: [900n, 350n, 1_100n] },
 ]
@@ -119,6 +132,10 @@ for (const book of books) {
   }
   console.log(book.symbol, key.toBase58(), `${book.requests.length} subscriptions`)
   if (book.seconds < 120) short.push(key)
+  else {
+    const done = await work((await fetchOffer(program, key))!, await chainNow())
+    if (done.length) console.log(book.symbol, done.join(', '))
+  }
 }
 
 for (const key of short) {
@@ -133,7 +150,7 @@ for (const key of short) {
 
 if (CLUSTER !== 'mainnet') {
   const env = [`VITE_CLUSTER=${CLUSTER}`, `VITE_RPC_URL=${RPC_URL}`, `VITE_MINT=${mint.toBase58()}`, 'VITE_MINT_DECIMALS=6', 'VITE_MINT_SYMBOL=USDC', ''].join('\n')
-  const file = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'app', CLUSTER === 'localnet' ? '.env.development.local' : '.env.production.local')
+  const file = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'app', local ? '.env.development.local' : '.env.production.local')
   writeFileSync(file, env)
   console.log('wrote', file)
 }

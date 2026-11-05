@@ -1,6 +1,6 @@
 import { AnchorProvider, Program, type Idl, type Wallet } from '@coral-xyz/anchor'
 import BN from 'bn.js'
-import { Connection, PublicKey, SystemProgram, type TransactionInstruction } from '@solana/web3.js'
+import { ComputeBudgetProgram, Connection, PublicKey, SystemProgram, TransactionMessage, VersionedTransaction, type TransactionInstruction } from '@solana/web3.js'
 import { ASSOCIATED_TOKEN_PROGRAM_ID, TOKEN_2022_PROGRAM_ID, TOKEN_PROGRAM_ID, getAssociatedTokenAddressSync } from '@solana/spl-token'
 import idlJson from './idl/allot.json'
 import type { Allot } from './idl/allot'
@@ -38,6 +38,7 @@ export interface Offer {
   inStrategy: bigint
   yieldTotal: bigint
   yieldPaid: bigint
+  loss: bigint
   unitsAllotted: bigint
   processed: number
   closedTs: number
@@ -136,6 +137,7 @@ export function decodeOffer(key: PublicKey, o: RawOffer): Offer {
     inStrategy: BigInt(o.inStrategy.toString()),
     yieldTotal: BigInt(o.yieldTotal.toString()),
     yieldPaid: BigInt(o.yieldPaid.toString()),
+    loss: BigInt(o.loss.toString()),
     unitsAllotted: BigInt(o.unitsAllotted.toString()),
     processed: o.processed,
     closedTs: Number(o.closedTs),
@@ -273,6 +275,108 @@ export function finalizeIx(program: Program<Allot>, offer: Offer, feeDestination
     .instruction()
 }
 
+export const LEND = {
+  lending: new PublicKey('jup3YeL8QhtSx1e253b2FDvsMNC87fDrgQZivbrndc9'),
+  liquidity: new PublicKey('jupeiUmn818Jg1ekPURTpr4mFo29p46vygyykFJ3wZC'),
+  rewards: new PublicKey('jup7TthsMgcR9Y3L277b8Eo9uboVSmu1utkuXHNUKar'),
+}
+
+export function lendAccounts(mint: PublicKey) {
+  const find = (seeds: Uint8Array[], program: PublicKey) => PublicKey.findProgramAddressSync(seeds, program)[0]
+  const shareMint = find([seed('f_token_mint'), mint.toBytes()], LEND.lending)
+  const admin = find([seed('lending_admin')], LEND.lending)
+  const lending = find([seed('lending'), mint.toBytes(), shareMint.toBytes()], LEND.lending)
+  const liquidity = find([seed('liquidity')], LEND.liquidity)
+  return {
+    shareMint,
+    admin,
+    lending,
+    liquidity,
+    reserve: find([seed('reserve'), mint.toBytes()], LEND.liquidity),
+    position: find([seed('user_supply_position'), mint.toBytes(), lending.toBytes()], LEND.liquidity),
+    rateModel: find([seed('rate_model'), mint.toBytes()], LEND.liquidity),
+    vault: getAssociatedTokenAddressSync(mint, liquidity, true, TOKEN_PROGRAM_ID),
+    claim: find([seed('user_claim'), admin.toBytes(), mint.toBytes()], LEND.liquidity),
+    rewardsRateModel: find([seed('lending_rewards_rate_model'), mint.toBytes()], LEND.rewards),
+  }
+}
+
+const ro = (pubkey: PublicKey) => ({ pubkey, isSigner: false, isWritable: false })
+const rw = (pubkey: PublicKey) => ({ pubkey, isSigner: false, isWritable: true })
+
+export function sharesOf(offer: Offer): PublicKey {
+  return getAssociatedTokenAddressSync(lendAccounts(offer.mint).shareMint, offer.key, true, TOKEN_PROGRAM_ID)
+}
+
+export function sweepIx(program: Program<Allot>, offer: Offer, authority: PublicKey, amount: bigint): Promise<TransactionInstruction> {
+  const l = lendAccounts(offer.mint)
+  return program.methods
+    .sweep(new BN(amount.toString()))
+    .accountsStrict({
+      authority,
+      config: configPda(),
+      offer: offer.key,
+      mint: offer.mint,
+      vault: vaultOf(offer),
+      shareMint: l.shareMint,
+      shares: sharesOf(offer),
+      lender: LEND.lending,
+      tokenProgram: TOKEN_PROGRAM_ID,
+      associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
+      systemProgram: SystemProgram.programId,
+    })
+    .remainingAccounts([ro(l.admin), rw(l.lending), rw(l.reserve), rw(l.position), ro(l.rateModel), rw(l.vault), rw(l.liquidity), ro(LEND.liquidity), ro(l.rewardsRateModel)])
+    .instruction()
+}
+
+export function unsweepIx(program: Program<Allot>, offer: Offer, authority: PublicKey, asSubscriber = false): Promise<TransactionInstruction> {
+  const l = lendAccounts(offer.mint)
+  return program.methods
+    .unsweep()
+    .accountsStrict({
+      authority,
+      config: configPda(),
+      offer: offer.key,
+      subscription: asSubscriber ? subscriptionPda(offer.key, authority) : null,
+      mint: offer.mint,
+      vault: vaultOf(offer),
+      shareMint: l.shareMint,
+      shares: sharesOf(offer),
+      lender: LEND.lending,
+      tokenProgram: TOKEN_PROGRAM_ID,
+      associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
+      systemProgram: SystemProgram.programId,
+    })
+    .remainingAccounts([ro(l.admin), rw(l.lending), rw(l.reserve), rw(l.position), ro(l.rateModel), rw(l.vault), rw(l.claim), rw(l.liquidity), ro(LEND.liquidity), ro(l.rewardsRateModel)])
+    .instruction()
+}
+
+export async function strategyValue(program: Program<Allot>, offer: Offer): Promise<bigint | null> {
+  if (offer.inStrategy === 0n) return null
+  const connection = program.provider.connection
+  const vault = vaultOf(offer)
+  const [held, { blockhash }, ix] = await Promise.all([
+    connection.getTokenAccountBalance(vault),
+    connection.getLatestBlockhash(),
+    unsweepIx(program, offer, offer.issuer),
+  ])
+  const message = new TransactionMessage({
+    payerKey: offer.issuer,
+    recentBlockhash: blockhash,
+    instructions: [ComputeBudgetProgram.setComputeUnitLimit({ units: 600_000 }), ix],
+  }).compileToV0Message()
+  const result = await connection.simulateTransaction(new VersionedTransaction(message), {
+    sigVerify: false,
+    replaceRecentBlockhash: true,
+    accounts: { encoding: 'base64', addresses: [vault.toBase58()] },
+  })
+  const data = result.value.accounts?.[0]?.data?.[0]
+  if (result.value.err || !data) return null
+  const bytes = Uint8Array.from(atob(data), (c) => c.charCodeAt(0))
+  const after = new DataView(bytes.buffer).getBigUint64(64, true)
+  return after - BigInt(held.value.amount)
+}
+
 export interface CreateOfferInput {
   offerId: bigint
   mint: PublicKey
@@ -343,4 +447,16 @@ export function allotment(offer: Offer, requested: bigint): bigint {
 export function yieldShare(offer: Offer, weight: bigint): bigint {
   if (offer.weightTotal === 0n || offer.yieldTotal === 0n) return 0n
   return (offer.yieldTotal * weight) / offer.weightTotal
+}
+
+export function haircut(offer: Offer, amount: bigint): bigint {
+  if (offer.loss === 0n || offer.principal === 0n) return 0n
+  return (offer.loss * amount + offer.principal - 1n) / offer.principal
+}
+
+export function refundOf(offer: Offer, sub: { units: bigint; amount: bigint }): bigint {
+  const kept = offer.success || offer.status === 'open' ? allotment(offer, sub.units) * offer.unitPrice : 0n
+  const due = sub.amount - kept
+  const cut = haircut(offer, sub.amount)
+  return due > cut ? due - cut : 0n
 }

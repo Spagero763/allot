@@ -47,7 +47,7 @@ export function Verify() {
 
       <div className="card mt-8 p-6 md:p-8">
         <p className="mono text-xs uppercase tracking-[0.2em] text-mute">Subscriber</p>
-        <a className="mono mt-1 block text-paper hover:underline" href={explorerAddress(sub.subscriber.toBase58())} target="_blank" rel="noreferrer">
+        <a className="mono mt-1 block break-all text-paper hover:underline" href={explorerAddress(sub.subscriber.toBase58())} target="_blank" rel="noreferrer">
           {sub.subscriber.toBase58()}
         </a>
 

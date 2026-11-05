@@ -2,7 +2,11 @@
 
 use {
     allot::state::*,
-    anchor_lang::{prelude::Pubkey, solana_program::instruction::Instruction, AccountDeserialize, InstructionData, ToAccountMetas},
+    anchor_lang::{
+        prelude::Pubkey,
+        solana_program::instruction::{AccountMeta, Instruction},
+        AccountDeserialize, InstructionData, ToAccountMetas,
+    },
     litesvm::LiteSVM,
     solana_keypair::Keypair,
     solana_message::{Message, VersionedMessage},
@@ -16,6 +20,35 @@ pub const TOKEN: Pubkey = anchor_spl::token::ID;
 pub const TOKEN_2022: Pubkey = anchor_spl::token_2022::ID;
 pub const ATA: Pubkey = anchor_spl::associated_token::ID;
 pub const DECIMALS: u8 = 6;
+
+pub const USDC: &str = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v";
+pub const LENDER: &str = "jup3YeL8QhtSx1e253b2FDvsMNC87fDrgQZivbrndc9";
+pub const LIQUIDITY: &str = "jupeiUmn818Jg1ekPURTpr4mFo29p46vygyykFJ3wZC";
+pub const SHARE_MINT: &str = "9BEcn9aPEmhSPbPQeFGjidRiEKki46fVQDyPpSQXPA2D";
+
+const LENDING_ADMIN: &str = "5nmGjA4s7ATzpBQXC5RNceRpaJ7pYw2wKsNBWyuSAZV6";
+const LENDING: &str = "2vVYHYM8VYnvZqQWpTJSj8o8DBf1wM8pVs3bsTgYZiqJ";
+const SUPPLY_RESERVES: &str = "94vK29npVbyRHXH63rRcTiSr26SFhrQTzbpNJuhQEDu";
+const SUPPLY_POSITION: &str = "Hf9gtkM4dpVBahVSzEXSVCAPpKzBsBcns3s8As3z77oF";
+const RATE_MODEL: &str = "5pjzT5dFTsXcwixoab1QDLvZQvpYJxJeBphkyfHGn688";
+const LIQUIDITY_VAULT: &str = "BmkUoKMFYBxNSzWXyUjyMJjMAaVz4d8ZnxwwmhDCUXFB";
+const CLAIM: &str = "HN1r4VfkDn53xQQfeGDYrNuDKFdemAhZsHYRwBrFhsW";
+const LIQUIDITY_STATE: &str = "7s1da8DduuBFqGra5bJBjpnvL5E9mGzCuMk1Qkh4or2Z";
+const REWARDS_RATE_MODEL: &str = "5xSPBiD3TibamAnwHDhZABdB4z4F9dcj5PnbteroBTTd";
+
+pub fn key(s: &str) -> Pubkey {
+    s.parse().unwrap()
+}
+
+fn meta(s: &str, writable: bool) -> AccountMeta {
+    AccountMeta { pubkey: key(s), is_signer: false, is_writable: writable }
+}
+
+fn compute(units: u32) -> Instruction {
+    let mut data = vec![2u8];
+    data.extend_from_slice(&units.to_le_bytes());
+    Instruction::new_with_bytes(key("ComputeBudget111111111111111111111111111111"), &data, vec![])
+}
 
 pub struct World {
     pub svm: LiteSVM,
@@ -57,6 +90,119 @@ impl World {
         w.set_time(w.now);
         w.mint = w.create_mint();
         w
+    }
+
+    pub fn fork() -> Self {
+        let mut w = World::new();
+        let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/jupiter");
+        let manifest = std::fs::read_to_string(dir.join("manifest.txt")).unwrap();
+        for line in manifest.lines() {
+            let part: Vec<&str> = line.split_whitespace().collect();
+            match part[0] {
+                "clock" => {
+                    w.svm.warp_to_slot(part[1].parse().unwrap());
+                    w.set_time(part[2].parse().unwrap());
+                }
+                "account" => {
+                    let mut account = w.svm.get_account(&w.admin.pubkey()).unwrap();
+                    account.data = std::fs::read(dir.join(format!("{}.bin", part[1]))).unwrap();
+                    account.owner = key(part[2]);
+                    account.lamports = part[3].parse().unwrap();
+                    w.svm.set_account(key(part[1]), account).unwrap();
+                }
+                _ => {}
+            }
+        }
+        for program in [LENDER, LIQUIDITY] {
+            let bytes = std::fs::read(dir.join(format!("{program}.so"))).unwrap();
+            w.svm.add_program(key(program), &bytes).unwrap();
+        }
+        let mut mint = w.svm.get_account(&key(USDC)).unwrap();
+        mint.data[0..4].copy_from_slice(&1u32.to_le_bytes());
+        mint.data[4..36].copy_from_slice(w.mint_authority.pubkey().as_ref());
+        w.svm.set_account(key(USDC), mint).unwrap();
+        w.mint = key(USDC);
+        w
+    }
+
+    pub fn shares_of(&self, offer: &Pubkey) -> Pubkey {
+        self.ata(offer, &key(SHARE_MINT), &TOKEN)
+    }
+
+    pub fn sweep(&mut self, offer: &Pubkey, authority: &Keypair, amount: u64) -> Result<(), String> {
+        self.sweep_with(offer, authority, amount, &key(LENDER))
+    }
+
+    pub fn sweep_with(&mut self, offer: &Pubkey, authority: &Keypair, amount: u64, lender: &Pubkey) -> Result<(), String> {
+        let mut accounts = allot::accounts::Sweep {
+            authority: authority.pubkey(),
+            config: self.config_pda(),
+            offer: *offer,
+            mint: self.mint,
+            vault: self.vault_of(offer),
+            share_mint: key(SHARE_MINT),
+            shares: self.shares_of(offer),
+            lender: *lender,
+            token_program: TOKEN,
+            associated_token_program: ATA,
+            system_program: SYSTEM,
+        }
+        .to_account_metas(None);
+        accounts.extend([
+            meta(LENDING_ADMIN, false),
+            meta(LENDING, true),
+            meta(SUPPLY_RESERVES, true),
+            meta(SUPPLY_POSITION, true),
+            meta(RATE_MODEL, false),
+            meta(LIQUIDITY_VAULT, true),
+            meta(LIQUIDITY_STATE, true),
+            meta(LIQUIDITY, false),
+            meta(REWARDS_RATE_MODEL, false),
+        ]);
+        let ix = Instruction::new_with_bytes(self.program, &allot::instruction::Sweep { amount }.data(), accounts);
+        let authority = authority.insecure_clone();
+        self.send(&[compute(600_000), ix], &authority, &[])
+    }
+
+    pub fn unsweep(&mut self, offer: &Pubkey, authority: &Keypair, as_subscriber: bool) -> Result<(), String> {
+        let mut accounts = allot::accounts::Unsweep {
+            authority: authority.pubkey(),
+            config: self.config_pda(),
+            offer: *offer,
+            subscription: as_subscriber.then(|| self.sub_pda(offer, &authority.pubkey())),
+            mint: self.mint,
+            vault: self.vault_of(offer),
+            share_mint: key(SHARE_MINT),
+            shares: self.shares_of(offer),
+            lender: key(LENDER),
+            token_program: TOKEN,
+            associated_token_program: ATA,
+            system_program: SYSTEM,
+        }
+        .to_account_metas(None);
+        accounts.extend([
+            meta(LENDING_ADMIN, false),
+            meta(LENDING, true),
+            meta(SUPPLY_RESERVES, true),
+            meta(SUPPLY_POSITION, true),
+            meta(RATE_MODEL, false),
+            meta(LIQUIDITY_VAULT, true),
+            meta(CLAIM, true),
+            meta(LIQUIDITY_STATE, true),
+            meta(LIQUIDITY, false),
+            meta(REWARDS_RATE_MODEL, false),
+        ]);
+        let ix = Instruction::new_with_bytes(self.program, &allot::instruction::Unsweep {}.data(), accounts);
+        let authority = authority.insecure_clone();
+        self.send(&[compute(600_000), ix], &authority, &[])
+    }
+
+    pub fn drain_vault(&mut self, offer: &Pubkey, amount: u64) {
+        let vault = self.vault_of(offer);
+        let mut account = self.svm.get_account(&vault).unwrap();
+        let left = self.balance(&vault) - amount;
+        account.data[64..72].copy_from_slice(&left.to_le_bytes());
+        self.svm.set_account(vault, account).unwrap();
     }
 
     pub fn set_time(&mut self, ts: i64) {

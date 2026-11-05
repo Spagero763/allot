@@ -1,16 +1,44 @@
-import { allotIx, closeOfferIx, configPda, fetchOffers, fetchSubscriptionsOf, finalizeIx, type Offer } from 'allot-sdk'
-import { chainNow, loadKeypair, programFor, send, sleep } from './env'
+import { LEND, allotIx, closeOfferIx, configPda, fetchOffer, fetchOffers, fetchSubscriptionsOf, finalizeIx, sweepIx, unsweepIx, vaultOf, type Offer } from 'allot-sdk'
+import { chainNow, connection, loadKeypair, programFor, send, sleep } from './env'
 
 const BATCH = 5
 const INTERVAL = Number(process.env.INTERVAL_MS ?? 4000)
 
+const TARGET_RESERVE_BPS = 1_500n
+const MIN_SWEEP_BPS = 500n
+const MIN_RUNWAY = 60 * 60
+
 const keeper = loadKeypair()
 const program = programFor(keeper)
+
+let lender: boolean | undefined
+async function canLend(): Promise<boolean> {
+  lender ??= Boolean((await connection.getAccountInfo(LEND.lending))?.executable)
+  return lender
+}
+
+async function sweepIdle(offer: Offer, now: number): Promise<string | null> {
+  if (offer.strategy !== 'jupiterLend' || offer.closeTs - now < MIN_RUNWAY || !(await canLend())) return null
+  const idle = BigInt((await connection.getTokenAccountBalance(vaultOf(offer))).value.amount)
+  const amount = idle - (offer.principal * TARGET_RESERVE_BPS) / 10_000n
+  if (amount <= 0n || amount < (offer.principal * MIN_SWEEP_BPS) / 10_000n) return null
+  await send([await sweepIx(program, offer, keeper.publicKey, amount)], keeper, [], 600_000)
+  return `swept ${amount}`
+}
 
 export async function work(offer: Offer, now: number): Promise<string[]> {
   const done: string[] = []
   if (offer.status === 'open') {
-    if (now < offer.closeTs) return done
+    if (now < offer.closeTs) {
+      const swept = await sweepIdle(offer, now)
+      if (swept) done.push(swept)
+      return done
+    }
+    if (offer.inStrategy > 0n) {
+      await send([await unsweepIx(program, offer, keeper.publicKey)], keeper, [], 600_000)
+      done.push('recalled')
+      offer = (await fetchOffer(program, offer.key))!
+    }
     await send([await closeOfferIx(program, offer)], keeper)
     done.push('closed')
     return done

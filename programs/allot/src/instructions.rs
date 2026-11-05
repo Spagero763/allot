@@ -5,6 +5,7 @@ pub mod close_offer;
 pub mod config;
 pub mod create_offer;
 pub mod finalize;
+pub mod strategy;
 pub mod subscribe;
 
 pub use allot::*;
@@ -14,4 +15,5 @@ pub use close_offer::*;
 pub use config::*;
 pub use create_offer::*;
 pub use finalize::*;
+pub use strategy::*;
 pub use subscribe::*;
