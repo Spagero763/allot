@@ -20,15 +20,15 @@ custom-heap = []
 custom-panic = []
 
 [dependencies]
-anchor-lang = { version = "1.1.2", features = ["init-if-needed"] }
-anchor-spl = "1.1.2"
+anchor-lang = { version = "1.2.2", features = ["init-if-needed"] }
+anchor-spl = "1.2.2"
 
 [dev-dependencies]
-litesvm = "0.10.0"
-solana-message = "3.0.1"
-solana-transaction = "3.0.2"
-solana-signer = "3.0.0"
-solana-keypair = "3.0.1"
+litesvm = "0.15.0"
+solana-message = "4"
+solana-transaction = "4"
+solana-signer = "3"
+solana-keypair = "3"
 solana-program-pack = "3.0.0"
 spl-token-interface = "2.0.0"
 spl-associated-token-account-interface = "2.0.0"

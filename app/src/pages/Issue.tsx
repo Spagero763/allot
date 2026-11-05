@@ -8,7 +8,7 @@ import { DEFAULT_MINT, DEFAULT_MINT_DECIMALS, DEFAULT_MINT_SYMBOL } from '@/lib/
 import { money, units } from '@/lib/format'
 import { Page, Reveal } from '@/ui/motion'
 import { TxNote } from './Offer'
-import { OfferCard } from './Landing'
+import { OfferCard } from '@/ui/OfferCard'
 import { useNow } from '@/lib/hooks'
 
 export function Issue() {

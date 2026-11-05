@@ -1,6 +1,6 @@
 import { Route, Routes } from 'react-router-dom'
 import { Shell } from './ui/Shell'
-import { Landing } from './pages/Landing'
+import { Home } from './pages/Home'
 import { OfferPage } from './pages/Offer'
 import { Portfolio } from './pages/Portfolio'
 import { Issue } from './pages/Issue'
@@ -11,7 +11,7 @@ export function App() {
   return (
     <Routes>
       <Route element={<Shell />}>
-        <Route index element={<Landing />} />
+        <Route index element={<Home />} />
         <Route path="o/:offer" element={<OfferPage />} />
         <Route path="me" element={<Portfolio />} />
         <Route path="issue" element={<Issue />} />

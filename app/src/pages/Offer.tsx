@@ -5,7 +5,11 @@ import { AnimatePresence, motion } from 'motion/react'
 import { allotment, allotIx, cancelOfferIx, cancelSubscriptionIx, closeOfferIx, finalizeIx, subscribeIx, yieldShare, type Offer, type Subscription } from 'allot-sdk'
 import { useMySubscription, useNow, useOffer, useProgram, useSend } from '@/lib/hooks'
 import { countdown, dateLabel, explorer, explorerAddress, money, short, units } from '@/lib/format'
-import { Bar, Counter, Page, Reveal, ease } from '@/ui/motion'
+import { Page, ease } from '@/ui/motion'
+import { BookVisual } from '@/ui/BookVisual'
+import { Digits, FadeUp, SplitReveal } from '@/ui/fx'
+import { bookOf } from '@/lib/book'
+import { DEFAULT_MINT_SYMBOL } from '@/lib/mints'
 import { Status } from '@/ui/Status'
 import { useConfig } from '@/lib/useConfig'
 
@@ -25,10 +29,10 @@ export function OfferPage() {
 }
 
 function OfferView({ offer, subs, now, reload }: { offer: Offer; subs: Subscription[]; now: number; reload: () => void }) {
-  const requested = Number(offer.unitsRequested)
   const total = Number(offer.totalUnits)
   const cd = countdown(offer.closeTs, now)
-  const sym = offer.mintDecimals === 6 ? 'USDC' : 'units'
+  const sym = DEFAULT_MINT_SYMBOL
+  const book = useMemo(() => bookOf(offer, subs, sym), [offer, subs, sym])
   const raise = offer.totalUnits * offer.unitPrice
   const closable = offer.status === 'open' && now >= offer.closeTs
   const pending = subs.filter((s) => !s.settled)
@@ -43,37 +47,24 @@ function OfferView({ offer, subs, now, reload }: { offer: Offer; subs: Subscript
               <span className="mono text-xs uppercase tracking-[0.2em] text-mute">{offer.symbol}</span>
               <Status offer={offer} />
             </div>
-            <h1 className="display mt-3 text-5xl md:text-7xl">{offer.name}</h1>
-            <p className="mt-4 max-w-xl text-paper-2">
+            <SplitReveal as="h1" scroll={false} delay={0.5} className="display mt-3 text-5xl md:text-7xl">
+              {offer.name}
+            </SplitReveal>
+            <FadeUp delay={0.7} className="mt-4 max-w-xl text-paper-2">
               {units(total)} units at {money(offer.unitPrice, offer.mintDecimals, sym)} each. Raise of {money(raise, offer.mintDecimals, sym)}.
               {offer.floorUnits > 0n && <> Every subscriber is guaranteed up to {units(Number(offer.floorUnits))} units before the rest is shared pro rata.</>}
-            </p>
+            </FadeUp>
 
-            <div className="card mt-8 p-6">
-              <div className="flex items-end justify-between">
-                <div>
-                  <p className="text-xs text-mute">Book coverage</p>
-                  <p className="display mt-1 text-5xl tabular">
-                    <Counter value={requested / Math.max(1, total)} format={(v) => `${v.toFixed(2)}x`} />
-                  </p>
-                </div>
-                <div className="text-right">
-                  <p className="text-xs text-mute">{offer.status === 'open' ? (cd.done ? 'Ready to close' : 'Closes in') : 'Closed'}</p>
-                  <p className="mono mt-1 text-2xl">{offer.status === 'open' ? cd.label : dateLabel(offer.closedTs || offer.closeTs)}</p>
-                </div>
-              </div>
-              <Bar className="mt-5 h-3" value={requested} max={total} />
-              <div className="mt-3 flex justify-between text-xs text-mute">
-                <span>{units(requested)} requested</span>
-                <span>{units(total)} offered</span>
-              </div>
-              <dl className="mt-6 grid grid-cols-2 gap-4 text-sm md:grid-cols-4">
-                <Fact k="Committed" v={money(offer.principal, offer.mintDecimals, sym)} />
-                <Fact k="Subscribers" v={offer.subscriberCount.toString()} />
-                <Fact k="Min raise" v={offer.minRaiseUnits === 0n ? 'none' : `${units(Number(offer.minRaiseUnits))} units`} />
-                <Fact k="Strategy" v={offer.strategy === 'jupiterLend' ? 'Jupiter Lend' : 'Vault'} />
-              </dl>
-            </div>
+            <FadeUp delay={0.8} className="mt-8">
+              <BookVisual data={book} mode={offer.status === 'open' ? 'live' : 'once'} />
+            </FadeUp>
+
+            <dl className="mt-4 grid grid-cols-2 gap-3 text-sm md:grid-cols-4">
+              <Fact k={offer.status === 'open' ? (cd.done ? 'Ready to close' : 'Closes in') : 'Closed'} v={offer.status === 'open' ? <Digits value={cd.label} /> : dateLabel(offer.closedTs || offer.closeTs)} />
+              <Fact k="Committed" v={money(offer.principal, offer.mintDecimals, sym)} />
+              <Fact k="Min raise" v={offer.minRaiseUnits === 0n ? 'none' : `${units(Number(offer.minRaiseUnits))} units`} />
+              <Fact k="While open" v={offer.strategy === 'jupiterLend' ? 'Lent on Jupiter' : 'Held in vault'} />
+            </dl>
 
             <Lifecycle offer={offer} now={now} />
 
@@ -140,11 +131,11 @@ function OfferView({ offer, subs, now, reload }: { offer: Offer; subs: Subscript
   )
 }
 
-function Fact({ k, v }: { k: string; v: string }) {
+function Fact({ k, v }: { k: string; v: React.ReactNode }) {
   return (
-    <div>
-      <dt className="text-mute">{k}</dt>
-      <dd className="tabular mt-1 text-paper">{v}</dd>
+    <div className="rounded-2xl border border-line px-4 py-3">
+      <dt className="text-xs text-mute">{k}</dt>
+      <dd className="mono mt-1 text-paper">{v}</dd>
     </div>
   )
 }
@@ -180,7 +171,7 @@ function SubscribePanel({ offer, now, reload }: { offer: Offer; now: number; rel
   const { send, state, reset } = useSend()
   const { sub, reload: reloadSub } = useMySubscription(offer)
   const [raw, setRaw] = useState('')
-  const sym = offer.mintDecimals === 6 ? 'USDC' : 'units'
+  const sym = DEFAULT_MINT_SYMBOL
   const open = offer.status === 'open' && now >= offer.openTs && now < offer.closeTs
   const n = useMemo(() => {
     const v = BigInt(Math.max(0, Math.floor(Number(raw) || 0)))
@@ -384,4 +375,3 @@ export function TxNote({ state }: { state: { status: string; sig?: string; messa
   )
 }
 
-export { Reveal }

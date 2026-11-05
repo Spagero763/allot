@@ -237,6 +237,15 @@ fn bad_terms_are_rejected() {
 }
 
 #[test]
+fn treasury_cannot_be_the_fee_destination() {
+    let mut w = World::new();
+    w.init_config(100);
+    let mut args = w.offer_args(14);
+    args.treasury = w.fee_destination.pubkey();
+    assert!(w.create_offer(args).is_err());
+}
+
+#[test]
 fn receipt_mint_carries_metadata() {
     let mut w = World::new();
     w.init_config(0);

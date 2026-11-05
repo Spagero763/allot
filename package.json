@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build:program": "anchor build && pnpm idl",
+    "build:program": "anchor build --arch v0 && pnpm idl",
     "idl": "cp target/idl/allot.json sdk/src/idl/allot.json && cp target/types/allot.ts sdk/src/idl/allot.ts",
     "test": "cargo test",
     "dev": "pnpm --filter app dev",

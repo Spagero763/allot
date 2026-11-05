@@ -80,6 +80,7 @@ pub fn handle_create_offer(ctx: Context<CreateOffer>, args: CreateOfferArgs) -> 
     require!(args.floor_units <= args.total_units, AllotError::InvalidTerms);
     require!(args.min_raise_units <= args.total_units, AllotError::InvalidTerms);
     require!(args.close_ts > args.open_ts && args.close_ts > now, AllotError::InvalidTerms);
+    require_keys_neq!(args.treasury, config.fee_destination, AllotError::InvalidTerms);
     require!(
         args.name.len() <= NAME_LEN && args.symbol.len() <= SYMBOL_LEN && args.uri.len() <= URI_LEN,
         AllotError::StringTooLong

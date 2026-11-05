@@ -1,4 +1,5 @@
-import { AnchorProvider, BN, Program, type Idl, type Wallet } from '@coral-xyz/anchor'
+import { AnchorProvider, Program, type Idl, type Wallet } from '@coral-xyz/anchor'
+import BN from 'bn.js'
 import { Connection, PublicKey, SystemProgram, type TransactionInstruction } from '@solana/web3.js'
 import { ASSOCIATED_TOKEN_PROGRAM_ID, TOKEN_2022_PROGRAM_ID, TOKEN_PROGRAM_ID, getAssociatedTokenAddressSync } from '@solana/spl-token'
 import idlJson from './idl/allot.json'

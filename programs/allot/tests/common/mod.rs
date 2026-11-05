@@ -337,6 +337,11 @@ impl World {
     }
 
     pub fn finalize(&mut self, offer: &Pubkey) -> Result<(), String> {
+        let treasury = self.treasury.pubkey();
+        self.finalize_to(offer, &treasury)
+    }
+
+    pub fn finalize_to(&mut self, offer: &Pubkey, treasury: &Pubkey) -> Result<(), String> {
         let ix = Instruction::new_with_bytes(
             self.program,
             &allot::instruction::Finalize {}.data(),
@@ -345,8 +350,8 @@ impl World {
                 offer: *offer,
                 mint: self.mint,
                 vault: self.ata(offer, &self.mint, &TOKEN),
-                treasury: self.treasury.pubkey(),
-                treasury_token: self.ata(&self.treasury.pubkey(), &self.mint, &TOKEN),
+                treasury: *treasury,
+                treasury_token: self.ata(treasury, &self.mint, &TOKEN),
                 fee_destination: self.fee_destination.pubkey(),
                 fee_token: self.ata(&self.fee_destination.pubkey(), &self.mint, &TOKEN),
                 token_program: TOKEN,
