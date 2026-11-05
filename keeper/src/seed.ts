@@ -1,6 +1,6 @@
 import { Keypair, PublicKey, SystemProgram } from '@solana/web3.js'
 import { LEND, configPda, createOfferIx, fetchOffer, offerPda, subscribeIx, subscriptionPda, type Strategy } from 'allot-sdk'
-import { writeFileSync } from 'node:fs'
+import { mkdirSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { CLUSTER, RPC_URL, chainNow, connection, keyOf, loadKeypair, pk, programFor, readState, send, sleep, writeState } from './env'
@@ -41,6 +41,13 @@ if (!state.mint || !(await connection.getAccountInfo(pk(state.mint)))) {
 }
 const mint = pk(state.mint)
 const authority = keyOf(state.mintAuthority!)
+
+const here = dirname(fileURLToPath(import.meta.url))
+if (!authority.publicKey.equals(payer.publicKey) && (await connection.getBalance(authority.publicKey)) < 0.5 * 1e9) {
+  await giveSol(payer, authority.publicKey, CLUSTER === 'localnet' ? 5 : 1.5)
+}
+mkdirSync(join(here, '..', '.state'), { recursive: true })
+writeFileSync(join(here, '..', '.state', `faucet-${CLUSTER}.json`), JSON.stringify([...authority.secretKey]), { mode: 0o600 })
 
 if (fundArg > 0) {
   const who = new PublicKey(process.argv[fundArg + 1])
@@ -149,8 +156,10 @@ for (const key of short) {
 }
 
 if (CLUSTER !== 'mainnet') {
-  const env = [`VITE_CLUSTER=${CLUSTER}`, `VITE_RPC_URL=${RPC_URL}`, `VITE_MINT=${mint.toBase58()}`, 'VITE_MINT_DECIMALS=6', 'VITE_MINT_SYMBOL=USDC', ''].join('\n')
-  const file = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'app', local ? '.env.development.local' : '.env.production.local')
+  const lines = [`VITE_CLUSTER=${CLUSTER}`, `VITE_RPC_URL=${RPC_URL}`, `VITE_MINT=${mint.toBase58()}`, 'VITE_MINT_DECIMALS=6', 'VITE_MINT_SYMBOL=USDC']
+  if (local) lines.push(`FAUCET_KEY=${JSON.stringify([...authority.secretKey])}`)
+  const env = [...lines, ''].join('\n')
+  const file = join(here, '..', '..', 'app', local ? '.env.development.local' : '.env.production.local')
   writeFileSync(file, env)
   console.log('wrote', file)
 }

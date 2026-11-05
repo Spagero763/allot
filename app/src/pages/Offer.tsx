@@ -12,6 +12,7 @@ import { bookOf } from '@/lib/book'
 import { DEFAULT_MINT_SYMBOL } from '@/lib/mints'
 import { Status } from '@/ui/Status'
 import { useConfig } from '@/lib/useConfig'
+import { Faucet } from '@/ui/Faucet'
 
 export function OfferPage() {
   const { offer: key } = useParams()
@@ -302,6 +303,7 @@ function SubscribePanel({ offer, now, reload, accrued }: { offer: Offer; now: nu
           </dl>
           {tooLow && <p className="mt-3 text-xs text-danger">Minimum is {offer.minUnits.toString()} units.</p>}
           {tooHigh && <p className="mt-3 text-xs text-danger">Maximum is {offer.maxUnits.toString()} units.</p>}
+          <Faucet refresh={state.status} />
           {!publicKey ? (
             <p className="mt-5 text-sm text-mute">Connect a wallet to commit.</p>
           ) : (
