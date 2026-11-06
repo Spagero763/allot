@@ -44,6 +44,21 @@ The formula, the yield split, the loss rule and the invariants are written out i
 - Only the known lending program ids are accepted, the vault must fall by exactly the amount lent, and the shares sit in an account owned by the offer.
 - If lending ever returns less than was put in, the shortfall is shared pro rata and settlement still completes. No path leaves money stuck in the vault.
 
+## Live on devnet
+
+Program: [`BJxkmWB63H6yzkmm3Vrv5a9zGe7FPfPe1uFcur77kTD3`](https://explorer.solana.com/address/BJxkmWB63H6yzkmm3Vrv5a9zGe7FPfPe1uFcur77kTD3?cluster=devnet)
+
+Four books are seeded, and two of them have run their whole life on chain:
+
+| Book | State | What to look at |
+| --- | --- | --- |
+| [Adire Collective Fund I](https://explorer.solana.com/address/7maQjjNrTgjLw1F1jwstNuvzAwgiXbhQe5rrW6FyJ5N5?cluster=devnet) | Settled. 36,650 units requested for 20,000 on offer | [close](https://explorer.solana.com/tx/e2UqTDPDm8ZpsqwFEpG34mVYqxGaVWLZikgFtvFphCRqQgxfjRPNc76xZGEcQ2C6JZGscyRhv3jartvLSndgj52?cluster=devnet), [five allotments with refunds and receipts in one transaction](https://explorer.solana.com/tx/WfribMYYgrQyJiDqxyborhMXzcpq1NszF1dKVTSbh7HPgiMtZNQ7WNTVusUA1JARBrxwm7WF28wgCDtc7k1n57p?cluster=devnet), [issuer paid](https://explorer.solana.com/tx/1uqMb9N9oTKUvog8HaGcKMguJPVGEz6vs96uRnatWQ19NbWx3rjKktScgQ9ShmsGzVfvBzinZuLRftmqghHFrd8?cluster=devnet) |
+| [Mangrove Cold Chain](https://explorer.solana.com/address/B6z1yYxzGZ3CYgKzmbRWbr2dao9X6zUFY4Cadrm36opF?cluster=devnet) | Missed its minimum raise. Everyone refunded in full | [close](https://explorer.solana.com/tx/u74Am5a7PMavPDuQpHTL3szW8XMjdWg7o1s1zQntjsrrstuT3tUVTL7pjJGvUuLHMXgLWYq7HGkTYUGxCD5jti9?cluster=devnet), [three refunds in one transaction](https://explorer.solana.com/tx/yoGhCBP24jZCWTT2sDu5xZu9PyNxMPEdd2SX7F6ZJT2cpvFZbZKEegLa9JeMidZQVDuiF9mnWkoA567fuHV6FxE?cluster=devnet) |
+| [Kuramo Terminals Series A](https://explorer.solana.com/address/Ps5qeem98DaVyMGkHwDe2u3q3YJAZzzigHQbcdCJBV4?cluster=devnet) | Open, 2.57 times oversubscribed | Subscribe with test USDC from the faucet |
+| [Savannah Grid Notes 2028](https://explorer.solana.com/address/7dLxMornNsr9CfQr7v4FSJm6WfaazxoSpRUcuqcK1hii?cluster=devnet) | Open, below its minimum raise so far | Subscribe with test USDC from the faucet |
+
+Jupiter Lend has no market on devnet, so devnet books hold their money in the vault. The lending path runs in the tests and on the local validator described below, both against the real Jupiter programs.
+
 ## Repository
 
 | Path | What it is |

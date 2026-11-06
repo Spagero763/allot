@@ -148,7 +148,13 @@ export function useSend() {
         tx.recentBlockhash = blockhash
         const sig = await sendTransaction(tx, connection, { preflightCommitment: 'confirmed' })
         setState({ status: 'sending' })
-        await connection.confirmTransaction({ signature: sig, blockhash, lastValidBlockHeight }, 'confirmed')
+        for (let i = 1; ; i++) {
+          await new Promise((r) => setTimeout(r, 900))
+          const status = (await connection.getSignatureStatuses([sig])).value[0]
+          if (status?.err) throw new Error('The transaction failed on chain')
+          if (status?.confirmationStatus === 'confirmed' || status?.confirmationStatus === 'finalized') break
+          if (i % 6 === 0 && (await connection.getBlockHeight('confirmed')) > lastValidBlockHeight) throw new Error('The transaction expired before it landed')
+        }
         setState({ status: 'done', sig })
         return sig
       } catch (e) {

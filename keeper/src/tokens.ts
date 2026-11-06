@@ -1,6 +1,6 @@
 import { createAssociatedTokenAccountIdempotentInstruction, createInitializeMint2Instruction, createMintToInstruction, getAssociatedTokenAddressSync, getMinimumBalanceForRentExemptMint, MINT_SIZE, TOKEN_PROGRAM_ID } from '@solana/spl-token'
 import { Keypair, LAMPORTS_PER_SOL, PublicKey, SystemProgram } from '@solana/web3.js'
-import { CLUSTER, connection, send } from './env'
+import { CLUSTER, confirm, connection, send } from './env'
 
 export const DECIMALS = 6
 export const usd = (n: number) => BigInt(Math.round(n * 10 ** DECIMALS))
@@ -36,8 +36,8 @@ export async function balanceOf(mint: PublicKey, owner: PublicKey, programId = T
 
 export async function giveSol(payer: Keypair, to: PublicKey, sol: number) {
   if (CLUSTER === 'localnet') {
-    const sig = await connection.requestAirdrop(to, sol * LAMPORTS_PER_SOL)
-    await connection.confirmTransaction(sig, 'confirmed')
+    const { lastValidBlockHeight } = await connection.getLatestBlockhash('confirmed')
+    await confirm(await connection.requestAirdrop(to, sol * LAMPORTS_PER_SOL), lastValidBlockHeight)
     return
   }
   await send([SystemProgram.transfer({ fromPubkey: payer.publicKey, toPubkey: to, lamports: Math.round(sol * LAMPORTS_PER_SOL) })], payer)

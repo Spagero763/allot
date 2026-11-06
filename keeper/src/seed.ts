@@ -88,6 +88,7 @@ interface Book {
   seconds: number
   requests: bigint[]
   strategy?: Strategy
+  settle?: boolean
 }
 
 const day = 60 * 60 * 24
@@ -96,8 +97,8 @@ const local = CLUSTER === 'localnet'
 const books: Book[] = [
   { slug: 'kta', name: 'Kuramo Terminals Series A', symbol: 'KTA', price: 1, units: 250_000n, min: 10n, floor: 200n, minRaise: 0n, seconds: local ? 6 * 60 * 60 : 30 * day, requests: [120_000n, 85_000n, 200n, 64_000n, 1_500n, 150_000n, 90n, 42_000n, 180_000n], strategy: lends ? 'jupiterLend' : 'idle' },
   { slug: 'sgn', name: 'Savannah Grid Notes 2028', symbol: 'SGN', price: 5, units: 40_000n, min: 5n, floor: 20n, minRaise: 10_000n, seconds: local ? 3 * day : 45 * day, requests: [6_000n, 20n, 4_500n, 1_200n] },
-  { slug: 'acf', name: 'Adire Collective Fund I', symbol: 'ACF', price: 2, units: 20_000n, min: 10n, floor: 100n, minRaise: 0n, seconds: 16, requests: [9_000n, 14_000n, 100n, 6_500n, 7_000n, 50n] },
-  { slug: 'mcc', name: 'Mangrove Cold Chain', symbol: 'MCC', price: 10, units: 8_000n, min: 1n, floor: 0n, minRaise: 6_000n, seconds: 16, requests: [900n, 350n, 1_100n] },
+  { slug: 'acf', name: 'Adire Collective Fund I', symbol: 'ACF', price: 2, units: 20_000n, min: 10n, floor: 100n, minRaise: 0n, seconds: local ? 16 : 150, settle: true, requests: [9_000n, 14_000n, 100n, 6_500n, 7_000n, 50n] },
+  { slug: 'mcc', name: 'Mangrove Cold Chain', symbol: 'MCC', price: 10, units: 8_000n, min: 1n, floor: 0n, minRaise: 6_000n, seconds: local ? 16 : 150, settle: true, requests: [900n, 350n, 1_100n] },
 ]
 
 state.offers ??= {}
@@ -138,7 +139,7 @@ for (const book of books) {
     await send([await subscribeIx(programFor(s), offer, s.publicKey, units)], s)
   }
   console.log(book.symbol, key.toBase58(), `${book.requests.length} subscriptions`)
-  if (book.seconds < 120) short.push(key)
+  if (book.settle) short.push(key)
   else {
     const done = await work((await fetchOffer(program, key))!, await chainNow())
     if (done.length) console.log(book.symbol, done.join(', '))

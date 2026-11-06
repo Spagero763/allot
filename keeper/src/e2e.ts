@@ -29,7 +29,7 @@ log('mint', mint.toBase58())
 const now = await chainNow()
 const offerId = BigInt(Date.now())
 const offerKey = offerPda(payer.publicKey, offerId)
-const window = CLUSTER === 'localnet' ? 14 : 40
+const window = CLUSTER === 'localnet' ? 25 : 90
 log(
   'create_offer',
   await send(

@@ -1,5 +1,5 @@
 import { createAssociatedTokenAccountIdempotentInstruction, createMintToInstruction, getAssociatedTokenAddressSync } from '@solana/spl-token'
-import { Connection, Keypair, LAMPORTS_PER_SOL, PublicKey, SystemProgram, Transaction, sendAndConfirmTransaction } from '@solana/web3.js'
+import { Connection, Keypair, LAMPORTS_PER_SOL, PublicKey, SystemProgram, Transaction } from '@solana/web3.js'
 
 const DRIP = 5_000n * 1_000_000n
 const CAP = 20_000n * 1_000_000n
@@ -46,7 +46,18 @@ export async function drip(env: Env, request: Request): Promise<Response> {
   )
   if (needsGas) tx.add(SystemProgram.transfer({ fromPubkey: faucet.publicKey, toPubkey: wallet, lamports: GAS }))
   try {
-    const signature = await sendAndConfirmTransaction(connection, tx, [faucet], { commitment: 'confirmed' })
+    const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('confirmed')
+    tx.recentBlockhash = blockhash
+    tx.feePayer = faucet.publicKey
+    tx.sign(faucet)
+    const signature = await connection.sendRawTransaction(tx.serialize(), { preflightCommitment: 'confirmed', maxRetries: 3 })
+    for (let i = 1; ; i++) {
+      await new Promise((r) => setTimeout(r, 800))
+      const status = (await connection.getSignatureStatuses([signature])).value[0]
+      if (status?.err) throw new Error('failed')
+      if (status?.confirmationStatus === 'confirmed' || status?.confirmationStatus === 'finalized') break
+      if (i % 6 === 0 && (await connection.getBlockHeight('confirmed')) > lastValidBlockHeight) throw new Error('expired')
+    }
     return json({ signature, amount: DRIP.toString(), gas: needsGas })
   } catch {
     recent.delete(id)
