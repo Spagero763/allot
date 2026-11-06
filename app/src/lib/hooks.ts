@@ -96,7 +96,7 @@ export function useMySubscriptions() {
   return { subs, reload: load }
 }
 
-export function useEarning(offer: Offer, poll = 6000): { earned: number; perSecond: number } | null {
+export function useEarning(offer: Offer, poll = 6000): { earned: number; perSecond: number; steady: boolean } | null {
   const program = useProgram()
   const samples = useRef<{ at: number; value: number }[]>([])
   const [, bump] = useState(0)
@@ -126,7 +126,7 @@ export function useEarning(offer: Offer, poll = 6000): { earned: number; perSeco
   if (!last) return null
   const perSecond = first && last.at > first.at ? Math.max(0, ((last.value - first.value) / (last.at - first.at)) * 1000) : 0
   const value = last.value + (perSecond * (performance.now() - last.at)) / 1000
-  return { earned: Math.max(0, value - lent), perSecond }
+  return { earned: Math.max(0, value - lent), perSecond, steady: Boolean(first) && last.at - first.at >= 24_000 }
 }
 
 export type TxState = { status: 'idle' } | { status: 'signing' } | { status: 'sending' } | { status: 'done'; sig: string } | { status: 'error'; message: string }

@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { useWallet } from '@solana/wallet-adapter-react'
+import { useConnection, useWallet } from '@solana/wallet-adapter-react'
 import { AnimatePresence, motion } from 'motion/react'
-import { allotment, allotIx, cancelOfferIx, cancelSubscriptionIx, closeOfferIx, finalizeIx, subscribeIx, yieldShare, type Offer, type Subscription } from 'allot-sdk'
+import { allotment, allotIx, cancelOfferIx, cancelSubscriptionIx, closeOfferIx, finalizeIx, subscribeIx, unsweepIx, vaultOf, yieldShare, type Offer, type Subscription } from 'allot-sdk'
+import { ComputeBudgetProgram, type PublicKey, type TransactionInstruction } from '@solana/web3.js'
 import { useEarning, useMySubscription, useNow, useOffer, useProgram, useSend } from '@/lib/hooks'
 import { countdown, dateLabel, explorer, explorerAddress, money, short, units } from '@/lib/format'
 import { Page, ease } from '@/ui/motion'
@@ -63,7 +64,7 @@ function OfferView({ offer, subs, now, reload }: { offer: Offer; subs: Subscript
             </FadeUp>
 
             <dl className="mt-4 grid grid-cols-2 gap-3 text-sm md:grid-cols-4">
-              <Fact k={offer.status === 'open' ? (cd.done ? 'Ready to close' : 'Closes in') : 'Closed'} v={offer.status === 'open' ? <Digits value={cd.label} /> : dateLabel(offer.closedTs || offer.closeTs)} />
+              <Fact k={offer.status === 'open' ? (cd.done ? 'Ready to close' : 'Closes in') : 'Closed'} v={offer.status === 'open' ? cd.done ? 'now' : <Digits value={cd.label} /> : dateLabel(offer.closedTs || offer.closeTs)} />
               <Fact k="Committed" v={money(offer.principal, offer.mintDecimals, sym)} />
               <Fact k="Min raise" v={offer.minRaiseUnits === 0n ? 'none' : `${units(Number(offer.minRaiseUnits))} units`} />
               {offer.status !== 'open' && offer.yieldTotal > 0n ? (
@@ -73,7 +74,7 @@ function OfferView({ offer, subs, now, reload }: { offer: Offer; subs: Subscript
               )}
             </dl>
 
-            {earning && offer.status === 'open' && <Earning offer={offer} earned={earning.earned} perSecond={earning.perSecond} sym={sym} />}
+            {earning && offer.status === 'open' && <Earning offer={offer} earned={earning.earned} perSecond={earning.steady ? earning.perSecond : 0} sym={sym} />}
 
             <Lifecycle offer={offer} now={now} />
 
@@ -122,6 +123,7 @@ function OfferView({ offer, subs, now, reload }: { offer: Offer; subs: Subscript
             <div className="sticky top-24 space-y-4">
               <SubscribePanel offer={offer} now={now} reload={reload} accrued={accrued} />
               <Operations offer={offer} closable={closable} pending={pending} reload={reload} />
+              {offer.status === 'settled' && <Settlement offer={offer} sym={sym} />}
               <div className="card p-5 text-xs text-mute">
                 <p>Offer account</p>
                 <a className="mono block truncate text-paper hover:underline" href={explorerAddress(offer.key.toBase58())} target="_blank" rel="noreferrer">
@@ -224,6 +226,7 @@ function SubscribePanel({ offer, now, reload, accrued }: { offer: Offer; now: nu
   const program = useProgram()
   const { send, state, reset } = useSend()
   const { sub, reload: reloadSub } = useMySubscription(offer)
+  const { connection } = useConnection()
   const [raw, setRaw] = useState('')
   const sym = DEFAULT_MINT_SYMBOL
   const open = offer.status === 'open' && now >= offer.openTs && now < offer.closeTs
@@ -254,9 +257,11 @@ function SubscribePanel({ offer, now, reload, accrued }: { offer: Offer; now: nu
   }
 
   async function leave() {
-    if (!publicKey) return
+    if (!publicKey || !sub) return
     reset()
-    await send([await cancelSubscriptionIx(program, offer, publicKey)])
+    const idle = BigInt((await connection.getTokenAccountBalance(vaultOf(offer))).value.amount)
+    const recall = idle < sub.amount ? await recallIxs(program, offer, publicKey, true) : []
+    await send([...recall, await cancelSubscriptionIx(program, offer, publicKey)])
   }
 
   if (sub) {
@@ -333,20 +338,22 @@ function Operations({ offer, closable, pending, reload }: { offer: Offer; closab
   }, [state.status, reload])
 
   async function close() {
+    if (!publicKey) return
     reset()
-    await send([await closeOfferIx(program, offer)])
+    await send([...(await recallIxs(program, offer, publicKey)), await closeOfferIx(program, offer)])
   }
 
   async function cancel() {
+    if (!publicKey) return
     reset()
-    await send([await cancelOfferIx(program, offer)])
+    await send([...(await recallIxs(program, offer, publicKey)), await cancelOfferIx(program, offer)])
   }
 
   async function runAllotment() {
     if (!publicKey) return
     reset()
     const batches: Subscription[][] = []
-    for (let i = 0; i < pending.length; i += 6) batches.push(pending.slice(i, i + 6))
+    for (let i = 0; i < pending.length; i += 4) batches.push(pending.slice(i, i + 4))
     for (let i = 0; i < batches.length; i++) {
       setProgress(`Batch ${i + 1} of ${batches.length}`)
       const ixs = await Promise.all(batches[i].map((s) => allotIx(program, offer, s.subscriber, publicKey)))
@@ -370,6 +377,7 @@ function Operations({ offer, closable, pending, reload }: { offer: Offer; closab
     <div className="card p-6">
       <p className="mono text-xs uppercase tracking-[0.2em] text-mute">Run the book</p>
       <p className="mt-2 text-sm text-paper-2">These steps are permissionless. Anyone can run them, and the result is the same whoever does.</p>
+      {(offer.status !== 'open' || closable) && <Faucet refresh={state.status} />}
       <div className="mt-4 space-y-2">
         {closable && (
           <button className="btn btn-primary w-full" onClick={close} disabled={!publicKey || busy(state)}>
@@ -395,6 +403,44 @@ function Operations({ offer, closable, pending, reload }: { offer: Offer; closab
       <TxNote state={state} />
     </div>
   )
+}
+
+function Settlement({ offer, sym }: { offer: Offer; sym: string }) {
+  const proceeds = offer.success ? offer.unitsAllotted * offer.unitPrice : 0n
+  const fee = (proceeds * BigInt(offer.feeBps)) / 10_000n
+  const returned = offer.principal - offer.loss - proceeds
+  const rows: [string, string][] = [
+    ['Paid to the issuer', money(proceeds - fee, offer.mintDecimals, sym)],
+    ['Returned to subscribers', money(returned > 0n ? returned : 0n, offer.mintDecimals, sym)],
+    ['Yield paid out', money(offer.yieldPaid, offer.mintDecimals, sym, 4)],
+    ['Receipts minted', `${units(Number(offer.unitsAllotted))} ${offer.symbol}`],
+    ['Protocol fee', money(fee, offer.mintDecimals, sym)],
+  ]
+  return (
+    <div className="card p-6">
+      <p className="mono text-xs uppercase tracking-[0.2em] text-mute">{offer.success ? 'Settled' : 'Refunded in full'}</p>
+      <dl className="mt-4 space-y-2 text-sm">
+        {rows.map(([k, v], i) => (
+          <motion.div
+            key={k}
+            initial={{ opacity: 0, x: 12 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.6, ease, delay: 0.12 * i }}
+            className="flex items-center justify-between border-b border-line pb-2 last:border-0"
+          >
+            <dt className="text-paper-2">{k}</dt>
+            <dd className="tabular text-paper">{v}</dd>
+          </motion.div>
+        ))}
+      </dl>
+      <p className="mt-4 text-xs text-mute">The vault is empty. Every figure above is read from the offer account.</p>
+    </div>
+  )
+}
+
+async function recallIxs(program: ReturnType<typeof useProgram>, offer: Offer, who: PublicKey, asSubscriber = false): Promise<TransactionInstruction[]> {
+  if (offer.inStrategy === 0n) return []
+  return [ComputeBudgetProgram.setComputeUnitLimit({ units: 600_000 }), await unsweepIx(program, offer, who, asSubscriber)]
 }
 
 function busy(state: { status: string }) {
