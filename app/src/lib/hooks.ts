@@ -1,8 +1,11 @@
 import { useAnchorWallet, useConnection, useWallet } from '@solana/wallet-adapter-react'
-import { PublicKey, Transaction, type TransactionInstruction } from '@solana/web3.js'
+import { PublicKey, Transaction, type Connection, type TransactionInstruction } from '@solana/web3.js'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { fetchOffer, fetchOffers, fetchSubscription, fetchSubscriptionsBy, fetchSubscriptionsOf, getProgram, strategyValue, type Offer, type Subscription } from 'allot-sdk'
 import type { Wallet } from '@coral-xyz/anchor'
+import { CLUSTER } from './config'
+
+const LOCAL = CLUSTER === 'localnet'
 
 export function useProgram() {
   const { connection } = useConnection()
@@ -10,56 +13,93 @@ export function useProgram() {
   return useMemo(() => getProgram(connection, wallet as Wallet | undefined), [connection, wallet])
 }
 
+let skew = 0
+let synced = 0
+
+async function syncClock(connection: Connection) {
+  if (Date.now() - synced < 300_000) return
+  synced = Date.now()
+  try {
+    const chain = await connection.getBlockTime(await connection.getSlot('confirmed'))
+    if (chain) skew = chain - Date.now() / 1000
+  } catch {
+    synced = 0
+  }
+}
+
 export function useNow(tick = 1000): number {
-  const [now, setNow] = useState(() => Math.floor(Date.now() / 1000))
+  const { connection } = useConnection()
+  const read = () => Math.floor(Date.now() / 1000 + skew)
+  const [now, setNow] = useState(read)
   useEffect(() => {
-    const id = setInterval(() => setNow(Math.floor(Date.now() / 1000)), tick)
+    syncClock(connection).then(() => setNow(read()))
+    const id = setInterval(() => {
+      syncClock(connection)
+      setNow(read())
+    }, tick)
     return () => clearInterval(id)
-  }, [tick])
+  }, [tick, connection])
   return now
 }
 
-export function useOffers(poll = 8000) {
+export function useOffers(poll = LOCAL ? 8000 : 20000) {
   const program = useProgram()
   const [offers, setOffers] = useState<Offer[] | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const have = useRef(false)
   const load = useCallback(async () => {
     try {
       setOffers(await fetchOffers(program))
+      have.current = true
       setError(null)
     } catch (e) {
-      setError((e as Error).message)
+      if (!have.current) setError((e as Error).message)
     }
   }, [program])
   useEffect(() => {
     load()
-    const id = setInterval(load, poll)
+    const id = setInterval(() => document.hidden || load(), poll)
     return () => clearInterval(id)
   }, [load, poll])
   return { offers, error, reload: load }
 }
 
-export function useOffer(key: string | undefined, poll = 4000) {
+export function useOffer(key: string | undefined, poll = LOCAL ? 4000 : 6000) {
   const program = useProgram()
   const [offer, setOffer] = useState<Offer | null | undefined>(undefined)
   const [subs, setSubs] = useState<Subscription[]>([])
-  const load = useCallback(async () => {
-    if (!key) return
-    try {
-      const pk = new PublicKey(key)
-      const [o, s] = await Promise.all([fetchOffer(program, pk), fetchSubscriptionsOf(program, pk)])
-      setOffer(o)
-      setSubs(s)
-    } catch {
-      setOffer(null)
-    }
-  }, [program, key])
+  const stamp = useRef('')
+  const load = useCallback(
+    async (force = false) => {
+      if (!key) return
+      let pk: PublicKey
+      try {
+        pk = new PublicKey(key)
+      } catch {
+        return setOffer(null)
+      }
+      try {
+        const o = await fetchOffer(program, pk)
+        setOffer(o)
+        if (!o) return
+        const next = `${o.subscriberCount}:${o.unitsRequested}:${o.processed}:${o.status}`
+        if (!force && next === stamp.current) return
+        setSubs(await fetchSubscriptionsOf(program, pk))
+        stamp.current = next
+      } catch {
+        return
+      }
+    },
+    [program, key],
+  )
   useEffect(() => {
-    load()
-    const id = setInterval(load, poll)
+    stamp.current = ''
+    load(true)
+    const id = setInterval(() => document.hidden || load(), poll)
     return () => clearInterval(id)
   }, [load, poll])
-  return { offer, subs, reload: load }
+  const reload = useCallback(() => load(true), [load])
+  return { offer, subs, reload }
 }
 
 export function useMySubscription(offer: Offer | null | undefined) {
@@ -96,7 +136,7 @@ export function useMySubscriptions() {
   return { subs, reload: load }
 }
 
-export function useEarning(offer: Offer, poll = 6000): { earned: number; perSecond: number; steady: boolean } | null {
+export function useEarning(offer: Offer, poll = LOCAL ? 6000 : 12000): { earned: number; perSecond: number; steady: boolean } | null {
   const program = useProgram()
   const samples = useRef<{ at: number; value: number }[]>([])
   const [, bump] = useState(0)

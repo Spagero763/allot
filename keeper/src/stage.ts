@@ -47,4 +47,4 @@ for (const [i, units] of requests.entries()) {
 
 offer = (await fetchOffer(program, key))!
 if (lends) await send([await sweepIx(program, offer, payer.publicKey, (offer.principal * 85n) / 100n)], payer, [], 600_000)
-console.log(key.toBase58())
+console.log(key.toBase58(), offer.closeTs - (await chainNow()))

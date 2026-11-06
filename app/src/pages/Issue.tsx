@@ -3,13 +3,12 @@ import { Link } from 'react-router-dom'
 import { useWallet } from '@solana/wallet-adapter-react'
 import { PublicKey } from '@solana/web3.js'
 import { createOfferIx, offerPda, type Strategy } from 'allot-sdk'
-import { useOffers, useProgram, useSend } from '@/lib/hooks'
+import { useNow, useOffers, useProgram, useSend } from '@/lib/hooks'
 import { DEFAULT_MINT, DEFAULT_MINT_DECIMALS, DEFAULT_MINT_SYMBOL } from '@/lib/mints'
 import { money, units } from '@/lib/format'
 import { Page, Reveal } from '@/ui/motion'
 import { TxNote } from './Offer'
 import { OfferCard } from '@/ui/OfferCard'
-import { useNow } from '@/lib/hooks'
 
 export function Issue() {
   const { publicKey } = useWallet()
@@ -45,8 +44,8 @@ export function Issue() {
       maxUnits: BigInt(form.maxUnits || 0),
       floorUnits: BigInt(form.floorUnits || 0),
       minRaiseUnits: BigInt(form.minRaiseUnits || 0),
-      openTs: Math.floor(Date.now() / 1000) + Number(form.opensIn || 0) * 60,
-      closeTs: Math.floor(Date.now() / 1000) + Number(form.opensIn || 0) * 60 + Number(form.duration || 0) * 60,
+      openTs: now + Number(form.opensIn || 0) * 60,
+      closeTs: now + Number(form.opensIn || 0) * 60 + Number(form.duration || 0) * 60,
     }
   }, [form])
   const raise = parsed.unitPrice * parsed.totalUnits

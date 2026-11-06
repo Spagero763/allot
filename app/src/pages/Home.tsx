@@ -148,7 +148,7 @@ function Ticker({ offers }: { offers: Offer[] }) {
     program.account.subscription
       .all()
       .then((all) => setSubs(all.map((a) => decodeSubscription(a.publicKey, a.account)).sort((a, b) => b.committedTs - a.committedTs).slice(0, 16)))
-      .catch(() => setSubs([]))
+      .catch(() => undefined)
   }, [program, count])
   const bySymbol = useMemo(() => Object.fromEntries(offers.map((o) => [o.key.toBase58(), o.symbol])), [offers])
   if (subs.length === 0) return null
