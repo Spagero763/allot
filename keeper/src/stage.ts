@@ -1,6 +1,6 @@
 import { LEND, createOfferIx, fetchOffer, offerPda, subscribeIx, sweepIx } from 'allot-sdk'
 import { chainNow, connection, keyOf, loadKeypair, pk, programFor, readState, send } from './env'
-import { usd } from './tokens'
+import { giveSol, usd } from './tokens'
 
 const seconds = Number(process.argv[2] ?? 120)
 const payer = loadKeypair()
@@ -42,6 +42,7 @@ const requests = [60_000n, 45_000n, 100n, 30_000n, 52_000n]
 let offer = (await fetchOffer(program, key))!
 for (const [i, units] of requests.entries()) {
   const s = subscribers[(i + 3) % subscribers.length]
+  if ((await connection.getBalance(s.publicKey)) < 0.01 * 1e9) await giveSol(payer, s.publicKey, 0.05)
   await send([await subscribeIx(programFor(s), offer, s.publicKey, units)], s)
 }
 

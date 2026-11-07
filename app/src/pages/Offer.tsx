@@ -243,12 +243,12 @@ function SubscribePanel({ offer, now, reload, accrued }: { offer: Offer; now: nu
   const tooLow = n > 0n && n < offer.minUnits
   const tooHigh = offer.maxUnits > 0n && n > offer.maxUnits
 
+  const landed = state.status === 'done' ? state.sig : null
   useEffect(() => {
-    if (state.status === 'done') {
-      reload()
-      reloadSub()
-    }
-  }, [state.status, reload, reloadSub])
+    if (!landed) return
+    reload()
+    reloadSub()
+  }, [landed, reload, reloadSub])
 
   async function commit() {
     if (!publicKey) return
@@ -333,9 +333,10 @@ function Operations({ offer, closable, pending, reload }: { offer: Offer; closab
   const allotted = offer.status !== 'open' && offer.processed === offer.subscriberCount
   const canFinalize = allotted && offer.status !== 'settled'
 
+  const landed = state.status === 'done' ? state.sig : null
   useEffect(() => {
-    if (state.status === 'done') reload()
-  }, [state.status, reload])
+    if (landed) reload()
+  }, [landed, reload])
 
   async function close() {
     if (!publicKey) return

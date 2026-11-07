@@ -106,13 +106,14 @@ export function useMySubscription(offer: Offer | null | undefined) {
   const program = useProgram()
   const { publicKey } = useWallet()
   const [sub, setSub] = useState<Subscription | null>(null)
+  const key = offer?.key.toBase58()
   const load = useCallback(async () => {
-    if (!offer || !publicKey) {
+    if (!key || !publicKey) {
       setSub(null)
       return
     }
-    setSub(await fetchSubscription(program, offer.key, publicKey))
-  }, [program, offer, publicKey])
+    setSub(await fetchSubscription(program, new PublicKey(key), publicKey))
+  }, [program, key, publicKey])
   useEffect(() => {
     load()
   }, [load])

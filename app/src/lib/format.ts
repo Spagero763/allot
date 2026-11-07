@@ -1,15 +1,24 @@
+const formatters = new Map<string, Intl.NumberFormat>()
+function nf(options: Intl.NumberFormatOptions): Intl.NumberFormat {
+  const key = JSON.stringify(options)
+  let f = formatters.get(key)
+  if (!f) formatters.set(key, (f = new Intl.NumberFormat('en', options)))
+  return f
+}
+const dateFormat = new Intl.DateTimeFormat('en', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
+
 export function units(n: number | bigint): string {
-  return new Intl.NumberFormat('en', { maximumFractionDigits: 0 }).format(Number(n))
+  return nf({ maximumFractionDigits: 0 }).format(Number(n))
 }
 
 export function money(base: bigint | number, decimals: number, symbol = 'USDC', maxFrac = 2): string {
   const v = Number(base) / 10 ** decimals
-  const s = new Intl.NumberFormat('en', { minimumFractionDigits: v < 1 && v > 0 ? Math.min(6, maxFrac + 2) : 0, maximumFractionDigits: v < 1 && v > 0 ? Math.min(6, maxFrac + 2) : maxFrac }).format(v)
+  const s = nf({ minimumFractionDigits: v < 1 && v > 0 ? Math.min(6, maxFrac + 2) : 0, maximumFractionDigits: v < 1 && v > 0 ? Math.min(6, maxFrac + 2) : maxFrac }).format(v)
   return `${s} ${symbol}`
 }
 
 export function compact(n: number): string {
-  return new Intl.NumberFormat('en', { notation: 'compact', maximumFractionDigits: 1 }).format(n)
+  return nf({ notation: 'compact', maximumFractionDigits: 1 }).format(n)
 }
 
 export function pct(part: number, whole: number): number {
@@ -41,7 +50,7 @@ function pad(n: number): string {
 }
 
 export function dateLabel(ts: number): string {
-  return new Date(ts * 1000).toLocaleString('en', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
+  return dateFormat.format(new Date(ts * 1000))
 }
 
 export function explorer(sig: string, cluster = 'devnet'): string {

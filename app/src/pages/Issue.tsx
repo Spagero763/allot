@@ -52,9 +52,10 @@ export function Issue() {
   const valid =
     form.name.length > 0 && form.name.length <= 32 && form.symbol.length > 0 && form.symbol.length <= 10 && form.uri.length <= 128 && parsed.unitPrice > 0n && parsed.totalUnits > 0n && parsed.minUnits >= 1n && parsed.floorUnits <= parsed.totalUnits && parsed.minRaiseUnits <= parsed.totalUnits && Number(form.duration) > 0
 
+  const landed = state.status === 'done' ? state.sig : null
   useEffect(() => {
-    if (state.status === 'done') reload()
-  }, [state.status, reload])
+    if (landed) reload()
+  }, [landed, reload])
 
   async function create() {
     if (!publicKey) return
