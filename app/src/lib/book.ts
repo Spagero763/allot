@@ -44,3 +44,25 @@ function top(subs: Subscription[], max = 48): Subscription[] {
   if (subs.length <= max) return subs
   return [...subs].sort((a, b) => (b.units > a.units ? 1 : -1)).slice(0, max)
 }
+
+export function previewBook(name: string, symbol: string, total: number, price: number, floor: number, currency = 'USDC'): BookData {
+  const scale = total > 0 ? total / 250_000 : 0
+  const scaled = requests.map((r) => Math.max(1, Math.round(r * scale)))
+  const requested = scaled.reduce((a, b) => a + b, 0)
+  const floorDemand = scaled.reduce((a, r) => a + Math.min(r, floor), 0)
+  const usable = floor > 0 && floorDemand <= total
+  const alloc = (r: number) => {
+    if (requested <= total) return r
+    if (!usable) return Math.floor((r * total) / requested)
+    const g = Math.min(r, floor)
+    return g + Math.floor(((r - g) * (total - floorDemand)) / (requested - floorDemand))
+  }
+  return {
+    name: name || 'Your offer',
+    symbol: symbol || 'UNIT',
+    total,
+    price,
+    currency,
+    segs: scaled.map((r, i) => ({ id: `p${i}`, label: names[i], requested: r, allotted: alloc(r) })),
+  }
+}

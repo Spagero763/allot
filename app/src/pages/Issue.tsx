@@ -9,6 +9,8 @@ import { money, units } from '@/lib/format'
 import { Page, Reveal } from '@/ui/motion'
 import { TxNote } from './Offer'
 import { OfferCard } from '@/ui/OfferCard'
+import { BookVisual } from '@/ui/BookVisual'
+import { previewBook } from '@/lib/book'
 
 export function Issue() {
   const { publicKey } = useWallet()
@@ -49,6 +51,10 @@ export function Issue() {
     }
   }, [form])
   const raise = parsed.unitPrice * parsed.totalUnits
+  const preview = useMemo(
+    () => previewBook(form.name, form.symbol.toUpperCase(), Number(parsed.totalUnits), Number(parsed.unitPrice) / 10 ** DEFAULT_MINT_DECIMALS, Number(parsed.floorUnits), DEFAULT_MINT_SYMBOL),
+    [form.name, form.symbol, parsed.totalUnits, parsed.unitPrice, parsed.floorUnits],
+  )
   const valid =
     form.name.length > 0 && form.name.length <= 32 && form.symbol.length > 0 && form.symbol.length <= 10 && form.uri.length <= 128 && parsed.unitPrice > 0n && parsed.totalUnits > 0n && parsed.minUnits >= 1n && parsed.floorUnits <= parsed.totalUnits && parsed.minRaiseUnits <= parsed.totalUnits && Number(form.duration) > 0
 
@@ -188,7 +194,14 @@ export function Issue() {
         </form>
 
         <div className="min-w-0 md:col-span-5">
-          <h2 className="display text-3xl">Your offers</h2>
+          <div className="md:sticky md:top-24">
+            <p className="mono text-xs uppercase tracking-[0.2em] text-mute">If it were 2.6 times oversubscribed</p>
+            <div className="mt-3">
+              <BookVisual data={preview} mode="loop" />
+            </div>
+            <p className="mt-3 text-xs text-mute">A replay of your terms against a crowded book. Change the floor or the units and watch who gets what.</p>
+          </div>
+          <h2 className="display mt-10 text-3xl">Your offers</h2>
           <div className="mt-4 space-y-4">
             {mine.length === 0 && <p className="text-sm text-mute">None yet.</p>}
             {mine.map((o) => (
