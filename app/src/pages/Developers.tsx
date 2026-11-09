@@ -1,8 +1,9 @@
 import { PROGRAM_ID } from 'allot-sdk'
 import { explorerAddress } from '@/lib/format'
 import { Page, Reveal } from '@/ui/motion'
+import { StaggerIn } from '@/ui/fx'
 
-const snippet = `import { Connection, PublicKey } from '@solana/web3.js'
+const snippet = `import { Connection, Transaction } from '@solana/web3.js'
 import { getProgram, fetchOffers, subscribeIx } from 'allot-sdk'
 
 const connection = new Connection('https://api.devnet.solana.com')
@@ -49,14 +50,14 @@ export function Developers() {
             {PROGRAM_ID.toBase58()}
           </a>
           <p className="mt-6 mono text-xs uppercase tracking-[0.2em] text-mute">Accounts</p>
-          <ul className="mt-3 space-y-3 text-sm">
+          <StaggerIn className="mt-3 space-y-3 text-sm" selector="li">
             {accounts.map(([n, s, d]) => (
               <li key={n} className="border-b border-line pb-3">
                 <span className="text-paper">{n}</span> <span className="mono text-mute">{s}</span>
                 <p className="text-paper-2">{d}</p>
               </li>
             ))}
-          </ul>
+          </StaggerIn>
         </div>
         <div className="card p-6">
           <p className="mono text-xs uppercase tracking-[0.2em] text-mute">Instructions</p>
