@@ -32,10 +32,10 @@ The formula, the yield split, the loss rule and the invariants are written out i
 
 ## What has been verified
 
-**Program tests.** `cargo test -p allot` runs 25 tests in a local VM against the compiled program:
+**Program tests.** `cargo test -p allot` runs 28 tests in a local VM against the compiled program:
 
-- 8 on the allotment, yield, fee and shortfall maths.
-- 14 on the full lifecycle, including an oversubscribed book with a floor, a failed raise, a cancelled offer, a subscriber leaving, two shortfall cases, and a gated book that rejects missing, foreign, expired and wrong-schema attestations.
+- 10 on the allotment, yield, fee and shortfall maths, two of them property tests over 20,000 random books each: supply is never exceeded, the floor is honoured, asking for more never allots less, rounding leaves less than one unit per subscriber, yield is never overpaid and a shortfall is always covered.
+- 15 on the full lifecycle, one of them twelve random books settled end to end with every unit accounted for, including an oversubscribed book with a floor, a failed raise, a cancelled offer, a subscriber leaving, two shortfall cases, and a gated book that rejects missing, foreign, expired and wrong-schema attestations.
 - 3 on the lending path, run against the real Jupiter Lend and liquidity programs with a snapshot of their mainnet USDC accounts. In that test 135,000 USDC lent for 30 days returned 604.70 USDC of yield, and every refund, yield share, fee and payout added up to the vault balance exactly.
 
 **End to end through the client.** `pnpm e2e` drives the lifecycle through the TypeScript SDK on a validator: three allotments with refunds and receipts land in one transaction. `pnpm e2e:lend` does the same for the lending path on a local validator that runs the Jupiter programs.
@@ -61,7 +61,7 @@ Six books are seeded, and two of them have run their whole life on chain:
 | [Kuramo Terminals Series A](https://explorer.solana.com/address/5d9hJFGozrWEmMKoC9TwSkQXMkwitDArcaVmBfrBeySH?cluster=devnet) | Open, 2.57 times oversubscribed | Subscribe with test USDC from the faucet |
 | [Savannah Grid Notes 2028](https://explorer.solana.com/address/BEHSCxeZazdkGNmcJvS3Y4B3NzKJgBGLp8PAssh9VyNX?cluster=devnet) | Open, below its minimum raise so far | Subscribe with test USDC from the faucet |
 
-The demo KYC schema is [`GYY17CBk1SgdVVFTLHRa8LtQtK836LytpQupLp7NLp2J`](https://explorer.solana.com/address/GYY17CBk1SgdVVFTLHRa8LtQtK836LytpQupLp7NLp2J?cluster=devnet) on the Solana Attestation Service.
+The demo KYC schema is [`GYY17CBk1SgdVVFTLHRa8LtQtK836LytpQupLp7NLp2J`](https://explorer.solana.com/address/GYY17CBk1SgdVVFTLHRa8LtQtK836LytpQupLp7NLp2J?cluster=devnet) on the Solana Attestation Service. Attestations for the seeded subscribers were issued through it, for example [this one](https://explorer.solana.com/tx/5mr55KyfzkWpW4vdNQzrHkNWSyewucxZ1h5brxXECtivUx2zsHC2pzZf3qsb8cws3ySxN162DKGHUbEbzpbJSsei?cluster=devnet).
 
 Jupiter Lend has no market on devnet, so devnet books hold their money in the vault. The lending path runs in the tests and on the local validator described below, both against the real Jupiter programs.
 

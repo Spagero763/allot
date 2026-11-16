@@ -361,3 +361,60 @@ fn an_open_book_ignores_attestations() {
     w.subscribe_with(&offer, &a, 10, Some(Pubkey::new_unique())).unwrap();
     assert_eq!(w.offer(&offer).units_requested, 10);
 }
+
+#[test]
+fn random_books_always_settle_and_conserve_every_unit() {
+    let mut seed = 0x1234_5678_9abc_def1u64;
+    let mut rand = move |n: u64| {
+        seed ^= seed << 13;
+        seed ^= seed >> 7;
+        seed ^= seed << 17;
+        if n == 0 { 0 } else { seed % n }
+    };
+    let mut w = World::new();
+    w.init_config(1 + rand(500) as u16);
+    for round in 1..=12u64 {
+        let total = 1 + rand(5_000);
+        let mut args = w.offer_args(round);
+        args.total_units = total;
+        args.floor_units = rand(total / 3 + 1);
+        args.min_raise_units = rand(total + 1);
+        args.unit_price = 1_000 * (1 + rand(50));
+        args.close_ts = w.now + 600;
+        let offer = w.create_offer(args.clone()).unwrap();
+        let base = w.token_balance(&w.fee_destination.pubkey()) + w.token_balance(&w.treasury.pubkey());
+        let count = 1 + rand(7) as usize;
+        let mut subs = Vec::new();
+        let mut principal = 0u64;
+        for _ in 0..count {
+            let units = 1 + rand(total);
+            let k = w.subscriber(units * args.unit_price);
+            w.subscribe(&offer, &k, units).unwrap();
+            principal += units * args.unit_price;
+            subs.push(k);
+            w.advance(1 + rand(60) as i64);
+        }
+        if rand(2) == 1 {
+            w.seed_yield(&offer, rand(5_000_000));
+        }
+        w.advance(700);
+        w.close_offer(&offer).unwrap();
+        let o = w.offer(&offer);
+        let mut paid = 0u64;
+        for k in &subs {
+            w.allot(&offer, &k.pubkey()).unwrap();
+            paid += w.token_balance(&k.pubkey());
+        }
+        w.finalize(&offer).unwrap();
+        let o2 = w.offer(&offer);
+        assert_eq!(o2.status, OfferStatus::Settled);
+        assert_eq!(w.balance(&w.vault_of(&offer)), 0, "vault not empty in round {round}");
+        let fee = w.token_balance(&w.fee_destination.pubkey());
+        let treasury = w.token_balance(&w.treasury.pubkey());
+        let receipts: u64 = subs.iter().map(|k| w.receipt_balance(&offer, &k.pubkey())).sum();
+        assert_eq!(receipts, o2.units_allotted, "receipts must equal units allotted");
+        assert!(o2.units_allotted <= total);
+        assert_eq!(paid + fee + treasury - base, principal + o.yield_total, "every unit must land somewhere in round {round}");
+        assert_eq!(o.success, o.units_requested >= args.min_raise_units);
+    }
+}

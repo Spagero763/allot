@@ -65,6 +65,72 @@ mod tests {
         Book { total_units: total, units_requested: requested, floor_units: floor, floor_demand }
     }
 
+    struct Rng(u64);
+    impl Rng {
+        fn next(&mut self) -> u64 {
+            self.0 ^= self.0 << 13;
+            self.0 ^= self.0 >> 7;
+            self.0 ^= self.0 << 17;
+            self.0
+        }
+        fn below(&mut self, n: u64) -> u64 {
+            if n == 0 { 0 } else { self.next() % n }
+        }
+    }
+
+    #[test]
+    fn allotment_holds_its_invariants_over_random_books() {
+        let mut rng = Rng(0x9e37_79b9_7f4a_7c15);
+        for _ in 0..20_000 {
+            let total = 1 + rng.below(2_000_000);
+            let floor = rng.below(total / 4 + 1);
+            let count = 1 + rng.below(40) as usize;
+            let requests: Vec<u64> = (0..count).map(|_| 1 + rng.below(total)).collect();
+            let requested: u64 = requests.iter().sum();
+            let floor_demand: u64 = requests.iter().map(|r| (*r).min(floor)).sum();
+            let b = book(total, requested, floor, floor_demand);
+            let allotted: Vec<u64> = requests.iter().map(|r| allotment(&b, *r).unwrap()).collect();
+            let sum: u64 = allotted.iter().sum();
+            assert!(sum <= total, "supply exceeded");
+            for (r, a) in requests.iter().zip(&allotted) {
+                assert!(a <= r, "more than asked");
+                if requested <= total {
+                    assert_eq!(a, r, "undersubscribed book must fill in full");
+                } else if floor > 0 && floor_demand <= total {
+                    assert!(*a >= (*r).min(floor), "floor not honoured");
+                }
+            }
+            if requested > total {
+                assert!(total - sum < count as u64, "rounding left more than one unit per subscriber");
+            }
+            let mut sorted: Vec<(u64, u64)> = requests.iter().cloned().zip(allotted.iter().cloned()).collect();
+            sorted.sort();
+            for w in sorted.windows(2) {
+                assert!(w[0].1 <= w[1].1, "asking for more must never allot less");
+            }
+        }
+    }
+
+    #[test]
+    fn yield_and_haircut_never_overpay_over_random_books() {
+        let mut rng = Rng(0x2545_f491_4f6c_dd1d);
+        for _ in 0..20_000 {
+            let count = 1 + rng.below(30) as usize;
+            let amounts: Vec<u64> = (0..count).map(|_| 1 + rng.below(10_000_000_000)).collect();
+            let seconds: Vec<u64> = (0..count).map(|_| rng.below(3_000_000)).collect();
+            let weights: Vec<u128> = amounts.iter().zip(&seconds).map(|(a, s)| (*a as u128) * (*s as u128)).collect();
+            let weight_total: u128 = weights.iter().sum();
+            let yield_total = rng.below(5_000_000_000);
+            let paid: u64 = weights.iter().map(|w| yield_share(yield_total, *w, weight_total).unwrap()).sum();
+            assert!(paid <= yield_total, "yield overpaid");
+            let principal: u64 = amounts.iter().sum();
+            let loss = rng.below(principal + 1);
+            let taken: u64 = amounts.iter().map(|a| haircut(loss, *a, principal).unwrap()).sum();
+            assert!(taken >= loss, "haircut does not cover the loss");
+            assert!(taken - loss < count as u64, "haircut over-collects");
+        }
+    }
+
     #[test]
     fn haircut_rounds_up_and_covers_the_loss() {
         assert_eq!(haircut(0, 500, 1_000), Some(0));
