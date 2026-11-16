@@ -1155,6 +1155,10 @@ export type Allot = {
           "writable": true
         },
         {
+          "name": "attestation",
+          "optional": true
+        },
+        {
           "name": "tokenProgram"
         },
         {
@@ -1859,6 +1863,11 @@ export type Allot = {
     },
     {
       "code": 6018,
+      "name": "notEligible",
+      "msg": "this book requires an attestation the subscriber does not hold"
+    },
+    {
+      "code": 6019,
       "name": "overflow",
       "msg": "arithmetic overflow"
     }
@@ -1978,6 +1987,10 @@ export type Allot = {
             }
           },
           {
+            "name": "gate",
+            "type": "pubkey"
+          },
+          {
             "name": "name",
             "type": "string"
           },
@@ -2068,6 +2081,10 @@ export type Allot = {
                 "name": "strategy"
               }
             }
+          },
+          {
+            "name": "gate",
+            "type": "pubkey"
           },
           {
             "name": "status",

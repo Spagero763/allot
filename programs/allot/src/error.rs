@@ -38,6 +38,8 @@ pub enum AllotError {
     ReserveTooLow,
     #[msg("strategy balances did not move as expected")]
     StrategyMismatch,
+    #[msg("this book requires an attestation the subscriber does not hold")]
+    NotEligible,
     #[msg("arithmetic overflow")]
     Overflow,
 }

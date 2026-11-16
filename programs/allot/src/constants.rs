@@ -18,6 +18,8 @@ pub const BPS: u64 = 10_000;
 #[constant]
 pub const MAX_FEE_BPS: u16 = 500;
 
+pub const ATTESTATION_SERVICE: Pubkey = pubkey!("22zoJMtdu4tQc2PzL74ZUT7FrwgB1Udec8DdW4yw4BdG");
+
 #[constant]
 pub const SWEEP_RESERVE_BPS: u64 = 1_000;
 

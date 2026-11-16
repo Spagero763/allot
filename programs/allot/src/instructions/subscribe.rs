@@ -1,7 +1,7 @@
 use anchor_lang::prelude::*;
 use anchor_spl::token_interface::{self, Mint, TokenAccount, TokenInterface, TransferChecked};
 
-use crate::{constants::*, error::AllotError, math, state::*};
+use crate::{constants::*, eligibility, error::AllotError, math, state::*};
 
 #[derive(Accounts)]
 pub struct Subscribe<'info> {
@@ -34,6 +34,8 @@ pub struct Subscribe<'info> {
         token::token_program = token_program,
     )]
     pub subscriber_token: Box<InterfaceAccount<'info, TokenAccount>>,
+    /// CHECK: parsed and checked against the attestation service in `eligibility`
+    pub attestation: Option<UncheckedAccount<'info>>,
     pub token_program: Interface<'info, TokenInterface>,
     pub system_program: Program<'info, System>,
 }
@@ -45,6 +47,10 @@ pub fn handle_subscribe(ctx: Context<Subscribe>, units: u64) -> Result<()> {
     require!(offer.is_open(now), AllotError::BookNotOpen);
     require!(units >= offer.min_units, AllotError::BelowMinimum);
     require!(offer.max_units == 0 || units <= offer.max_units, AllotError::AboveMaximum);
+    if offer.gate != Pubkey::default() {
+        let attestation = ctx.accounts.attestation.as_ref().ok_or(AllotError::NotEligible)?;
+        eligibility::check(&attestation.to_account_info(), &offer.gate, &ctx.accounts.subscriber.key(), now)?;
+    }
 
     let amount = (units as u128)
         .checked_mul(offer.unit_price as u128)

@@ -354,6 +354,7 @@ impl World {
             close_ts: self.now + 3_600,
             treasury: self.treasury.pubkey(),
             strategy: Strategy::Idle,
+            gate: Pubkey::default(),
             name: "Harbour Terminals Series A".to_string(),
             symbol: "HTA".to_string(),
             uri: "https://example.org/hta.json".to_string(),
@@ -384,6 +385,10 @@ impl World {
     }
 
     pub fn subscribe(&mut self, offer: &Pubkey, subscriber: &Keypair, units: u64) -> Result<(), String> {
+        self.subscribe_with(offer, subscriber, units, None)
+    }
+
+    pub fn subscribe_with(&mut self, offer: &Pubkey, subscriber: &Keypair, units: u64, attestation: Option<Pubkey>) -> Result<(), String> {
         let ix = Instruction::new_with_bytes(
             self.program,
             &allot::instruction::Subscribe { units }.data(),
@@ -395,6 +400,7 @@ impl World {
                 mint: self.mint,
                 vault: self.ata(offer, &self.mint, &TOKEN),
                 subscriber_token: self.ata(&subscriber.pubkey(), &self.mint, &TOKEN),
+                attestation,
                 token_program: TOKEN,
                 system_program: SYSTEM,
             }
@@ -402,6 +408,27 @@ impl World {
         );
         let s = subscriber.insecure_clone();
         self.send(&[ix], &s, &[])
+    }
+
+    pub fn attest(&mut self, credential: &Pubkey, schema: &Pubkey, subject: &Pubkey, expiry: i64) -> Pubkey {
+        let sas = allot::constants::ATTESTATION_SERVICE;
+        let key = Pubkey::find_program_address(&[b"attestation", credential.as_ref(), schema.as_ref(), subject.as_ref()], &sas).0;
+        let mut data = vec![2u8];
+        data.extend_from_slice(subject.as_ref());
+        data.extend_from_slice(credential.as_ref());
+        data.extend_from_slice(schema.as_ref());
+        let payload = b"NG";
+        data.extend_from_slice(&(payload.len() as u32).to_le_bytes());
+        data.extend_from_slice(payload);
+        data.extend_from_slice(self.admin.pubkey().as_ref());
+        data.extend_from_slice(&expiry.to_le_bytes());
+        data.extend_from_slice(Pubkey::default().as_ref());
+        let mut account = self.svm.get_account(&self.admin.pubkey()).unwrap();
+        account.data = data;
+        account.owner = sas;
+        account.lamports = 10_000_000;
+        self.svm.set_account(key, account).unwrap();
+        key
     }
 
     pub fn cancel_subscription(&mut self, offer: &Pubkey, subscriber: &Keypair) -> Result<(), String> {

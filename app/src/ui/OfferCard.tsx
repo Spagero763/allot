@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom'
 import type { Offer } from 'allot-sdk'
 import { coverage, countdown, money, units } from '@/lib/format'
-import { DEFAULT_MINT_SYMBOL } from '@/lib/mints'
+import { mintInfo } from '@/lib/mints'
 import { Digits, Spotlight } from './fx'
 import { Bar } from './motion'
 import { Status } from './Status'
@@ -24,11 +24,11 @@ export function OfferCard({ offer, now }: { offer: Offer; now: number }) {
         <div className="mt-6 grid grid-cols-3 gap-3 text-sm">
           <div>
             <p className="text-mute">Raise</p>
-            <p className="tabular mt-1">{money(raise, offer.mintDecimals, DEFAULT_MINT_SYMBOL)}</p>
+            <p className="tabular mt-1">{money(raise, offer.mintDecimals, mintInfo(offer.mint, offer.mintDecimals).symbol)}</p>
           </div>
           <div>
             <p className="text-mute">Unit</p>
-            <p className="tabular mt-1">{money(offer.unitPrice, offer.mintDecimals, DEFAULT_MINT_SYMBOL)}</p>
+            <p className="tabular mt-1">{money(offer.unitPrice, offer.mintDecimals, mintInfo(offer.mint, offer.mintDecimals).symbol)}</p>
           </div>
           <div>
             <p className="text-mute">{offer.status === 'open' ? 'Closes in' : 'Covered'}</p>

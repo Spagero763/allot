@@ -1,4 +1,5 @@
 pub mod constants;
+pub mod eligibility;
 pub mod error;
 pub mod instructions;
 pub mod math;

@@ -46,6 +46,7 @@ done
 for p in jup3YeL8QhtSx1e253b2FDvsMNC87fDrgQZivbrndc9 jupeiUmn818Jg1ekPURTpr4mFo29p46vygyykFJ3wZC; do
   args+=(--bpf-program "$p" "$FIX/$p.so")
 done
+args+=(--bpf-program 22zoJMtdu4tQc2PzL74ZUT7FrwgB1Udec8DdW4yw4BdG "$ROOT/programs/allot/tests/fixtures/sas/22zoJMtdu4tQc2PzL74ZUT7FrwgB1Udec8DdW4yw4BdG.so")
 
 exec solana-test-validator --reset --quiet \
   --ledger "$ROOT/test-ledger" \

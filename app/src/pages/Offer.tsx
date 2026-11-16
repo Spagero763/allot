@@ -10,7 +10,8 @@ import { Page, ease } from '@/ui/motion'
 import { BookVisual } from '@/ui/BookVisual'
 import { Digits, FadeUp, SplitReveal } from '@/ui/fx'
 import { bookOf } from '@/lib/book'
-import { DEFAULT_MINT_SYMBOL } from '@/lib/mints'
+import { mintInfo } from '@/lib/mints'
+import { Eligibility } from '@/ui/Eligibility'
 import { Status } from '@/ui/Status'
 import { useConfig } from '@/lib/useConfig'
 import { Faucet } from '@/ui/Faucet'
@@ -33,7 +34,7 @@ export function OfferPage() {
 function OfferView({ offer, subs, now, reload }: { offer: Offer; subs: Subscription[]; now: number; reload: () => void }) {
   const total = Number(offer.totalUnits)
   const cd = countdown(offer.closeTs, now)
-  const sym = DEFAULT_MINT_SYMBOL
+  const sym = mintInfo(offer.mint, offer.mintDecimals).symbol
   const book = useMemo(() => bookOf(offer, subs, sym), [offer, subs, sym])
   const raise = offer.totalUnits * offer.unitPrice
   const closable = offer.status === 'open' && now >= offer.closeTs
@@ -50,6 +51,7 @@ function OfferView({ offer, subs, now, reload }: { offer: Offer; subs: Subscript
             <div className="flex items-center gap-3">
               <span className="mono text-xs uppercase tracking-[0.2em] text-mute">{offer.symbol}</span>
               <Status offer={offer} />
+              {offer.gate && <span className="mono rounded-full bg-gold/15 px-3 py-1 text-xs uppercase tracking-wider text-gold">verified only</span>}
             </div>
             <SplitReveal as="h1" scroll={false} delay={0.5} className="display mt-3 text-5xl md:text-7xl">
               {offer.name}
@@ -228,7 +230,8 @@ function SubscribePanel({ offer, now, reload, accrued }: { offer: Offer; now: nu
   const { sub, reload: reloadSub } = useMySubscription(offer)
   const { connection } = useConnection()
   const [raw, setRaw] = useState('')
-  const sym = DEFAULT_MINT_SYMBOL
+  const [attestation, setAttestation] = useState<PublicKey | null>(null)
+  const sym = mintInfo(offer.mint, offer.mintDecimals).symbol
   const open = offer.status === 'open' && now >= offer.openTs && now < offer.closeTs
   const n = useMemo(() => {
     const v = BigInt(Math.max(0, Math.floor(Number(raw) || 0)))
@@ -253,7 +256,7 @@ function SubscribePanel({ offer, now, reload, accrued }: { offer: Offer; now: nu
   async function commit() {
     if (!publicKey) return
     reset()
-    await send([await subscribeIx(program, offer, publicKey, n)])
+    await send([await subscribeIx(program, offer, publicKey, n, attestation)])
   }
 
   async function leave() {
@@ -308,11 +311,12 @@ function SubscribePanel({ offer, now, reload, accrued }: { offer: Offer; now: nu
           </dl>
           {tooLow && <p className="mt-3 text-xs text-danger">Minimum is {offer.minUnits.toString()} units.</p>}
           {tooHigh && <p className="mt-3 text-xs text-danger">Maximum is {offer.maxUnits.toString()} units.</p>}
-          <Faucet refresh={state.status} />
+          <Faucet refresh={state.status} mint={offer.mint} />
+          <Eligibility offer={offer} onChange={setAttestation} />
           {!publicKey ? (
             <p className="mt-5 text-sm text-mute">Connect a wallet to commit.</p>
           ) : (
-            <button className="btn btn-signal mt-5 w-full" disabled={n === 0n || tooLow || tooHigh || state.status === 'signing' || state.status === 'sending'} onClick={commit}>
+            <button className="btn btn-signal mt-5 w-full" disabled={n === 0n || tooLow || tooHigh || (Boolean(offer.gate) && !attestation) || state.status === 'signing' || state.status === 'sending'} onClick={commit}>
               {state.status === 'signing' ? 'Sign in your wallet' : state.status === 'sending' ? 'Settling' : `Commit ${money(amount, offer.mintDecimals, sym)}`}
             </button>
           )}
@@ -378,7 +382,7 @@ function Operations({ offer, closable, pending, reload }: { offer: Offer; closab
     <div className="card p-6">
       <p className="mono text-xs uppercase tracking-[0.2em] text-mute">Run the book</p>
       <p className="mt-2 text-sm text-paper-2">These steps are permissionless. Anyone can run them, and the result is the same whoever does.</p>
-      {(offer.status !== 'open' || closable) && <Faucet refresh={state.status} />}
+      {(offer.status !== 'open' || closable) && <Faucet refresh={state.status} mint={offer.mint} />}
       <div className="mt-4 space-y-2">
         {closable && (
           <button className="btn btn-primary w-full" onClick={close} disabled={!publicKey || busy(state)}>

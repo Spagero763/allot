@@ -1149,6 +1149,10 @@
           "writable": true
         },
         {
+          "name": "attestation",
+          "optional": true
+        },
+        {
           "name": "token_program"
         },
         {
@@ -1853,6 +1857,11 @@
     },
     {
       "code": 6018,
+      "name": "NotEligible",
+      "msg": "this book requires an attestation the subscriber does not hold"
+    },
+    {
+      "code": 6019,
       "name": "Overflow",
       "msg": "arithmetic overflow"
     }
@@ -1972,6 +1981,10 @@
             }
           },
           {
+            "name": "gate",
+            "type": "pubkey"
+          },
+          {
             "name": "name",
             "type": "string"
           },
@@ -2062,6 +2075,10 @@
                 "name": "Strategy"
               }
             }
+          },
+          {
+            "name": "gate",
+            "type": "pubkey"
           },
           {
             "name": "status",

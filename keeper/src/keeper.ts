@@ -1,4 +1,4 @@
-import { LEND, allotIx, closeOfferIx, configPda, fetchOffer, fetchOffers, fetchSubscriptionsOf, finalizeIx, sweepIx, unsweepIx, vaultOf, type Offer } from 'allot-sdk'
+import { LEND, allotIx, closeOfferIx, configPda, fetchOffer, fetchOffers, fetchSubscriptionsOf, finalizeIx, lendAccounts, sweepIx, unsweepIx, vaultOf, type Offer } from 'allot-sdk'
 import { chainNow, connection, loadKeypair, programFor, send, sleep } from './env'
 
 const BATCH = 5
@@ -11,14 +11,18 @@ const MIN_RUNWAY = 60 * 60
 const keeper = loadKeypair()
 const program = programFor(keeper)
 
-let lender: boolean | undefined
-async function canLend(): Promise<boolean> {
-  lender ??= Boolean((await connection.getAccountInfo(LEND.lending))?.executable)
-  return lender
+const markets = new Map<string, boolean>()
+async function canLend(mint: Offer['mint']): Promise<boolean> {
+  const key = mint.toBase58()
+  if (!markets.has(key)) {
+    const program = Boolean((await connection.getAccountInfo(LEND.lending))?.executable)
+    markets.set(key, program && Boolean(await connection.getAccountInfo(lendAccounts(mint).lending)))
+  }
+  return markets.get(key)!
 }
 
 async function sweepIdle(offer: Offer, now: number): Promise<string | null> {
-  if (offer.strategy !== 'jupiterLend' || offer.closeTs - now < MIN_RUNWAY || !(await canLend())) return null
+  if (offer.strategy !== 'jupiterLend' || offer.closeTs - now < MIN_RUNWAY || !(await canLend(offer.mint))) return null
   const idle = BigInt((await connection.getTokenAccountBalance(vaultOf(offer))).value.amount)
   const amount = idle - (offer.principal * TARGET_RESERVE_BPS) / 10_000n
   if (amount <= 0n || amount < (offer.principal * MIN_SWEEP_BPS) / 10_000n) return null

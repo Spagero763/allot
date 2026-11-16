@@ -1,5 +1,6 @@
 import { Keypair, PublicKey, SystemProgram } from '@solana/web3.js'
-import { LEND, configPda, createOfferIx, fetchOffer, offerPda, subscribeIx, subscriptionPda, type Strategy } from 'allot-sdk'
+import { LEND, attestationPda, configPda, createOfferIx, fetchOffer, offerPda, subscribeIx, subscriptionPda, type Strategy } from 'allot-sdk'
+import { attestWallet, ensureKycSchema } from './attest'
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -46,6 +47,15 @@ const here = dirname(fileURLToPath(import.meta.url))
 if (!authority.publicKey.equals(payer.publicKey) && (await connection.getBalance(authority.publicKey)) < 0.5 * 1e9) {
   await giveSol(payer, authority.publicKey, CLUSTER === 'localnet' ? 5 : 1.5)
 }
+if (!state.naira || !(await connection.getAccountInfo(pk(state.naira)))) {
+  state.naira = (await createMint(payer, authority)).toBase58()
+  writeState(state)
+  console.log('naira mint', state.naira)
+}
+const naira = pk(state.naira)
+const kyc = await ensureKycSchema(authority)
+console.log('kyc schema', kyc.schema.toBase58())
+
 mkdirSync(join(here, '..', '.state'), { recursive: true })
 writeFileSync(join(here, '..', '.state', `faucet-${CLUSTER}.json`), JSON.stringify([...authority.secretKey]), { mode: 0o600 })
 
@@ -63,12 +73,14 @@ if (!state.subscribers) {
   for (const k of keys) {
     await giveSol(payer, k.publicKey, 0.03)
     await mintTo(payer, mint, authority, k.publicKey, usd(2_000_000))
+    await mintTo(payer, naira, authority, k.publicKey, usd(80_000_000))
   }
   state.subscribers = keys.map((k) => [...k.secretKey])
   writeState(state)
   console.log('subscribers funded', keys.length)
 }
 const subscribers = state.subscribers.map(keyOf)
+for (const s of subscribers) await attestWallet(authority, kyc.credential, kyc.schema, s.publicKey)
 
 if (!state.treasury) {
   state.treasury = Keypair.generate().publicKey.toBase58()
@@ -89,12 +101,16 @@ interface Book {
   requests: bigint[]
   strategy?: Strategy
   settle?: boolean
+  naira?: boolean
+  gated?: boolean
 }
 
 const day = 60 * 60 * 24
 const local = CLUSTER === 'localnet'
 
 const books: Book[] = [
+  { slug: 'lwn', name: 'Lagos Water Notes 2029', symbol: 'LWN', price: 2_500, units: 60_000n, min: 2n, floor: 20n, minRaise: 30_000n, seconds: local ? 5 * 60 * 60 : 35 * day, requests: [18_000n, 9_500n, 20n, 26_000n, 4_000n, 11_000n], naira: true },
+  { slug: 'lcs', name: 'Lekki Cold Storage Trust', symbol: 'LCS', price: 5, units: 30_000n, min: 10n, floor: 50n, minRaise: 0n, seconds: local ? 4 * 60 * 60 : 40 * day, requests: [12_000n, 50n, 7_500n, 9_000n, 3_200n, 6_000n], gated: true, strategy: lends ? 'jupiterLend' : 'idle' },
   { slug: 'kta', name: 'Kuramo Terminals Series A', symbol: 'KTA', price: 1, units: 250_000n, min: 10n, floor: 200n, minRaise: 0n, seconds: local ? 6 * 60 * 60 : 30 * day, requests: [120_000n, 85_000n, 200n, 64_000n, 1_500n, 150_000n, 90n, 42_000n, 180_000n], strategy: lends ? 'jupiterLend' : 'idle' },
   { slug: 'sgn', name: 'Savannah Grid Notes 2028', symbol: 'SGN', price: 5, units: 40_000n, min: 5n, floor: 20n, minRaise: 10_000n, seconds: local ? 3 * day : 45 * day, requests: [6_000n, 20n, 4_500n, 1_200n] },
   { slug: 'acf', name: 'Adire Collective Fund I', symbol: 'ACF', price: 2, units: 20_000n, min: 10n, floor: 100n, minRaise: 0n, seconds: local ? 16 : 150, settle: true, requests: [9_000n, 14_000n, 100n, 6_500n, 7_000n, 50n] },
@@ -112,7 +128,8 @@ for (const book of books) {
     [
       await createOfferIx(program, payer.publicKey, {
         offerId,
-        mint,
+        mint: book.naira ? naira : mint,
+        gate: book.gated ? kyc.schema : null,
         unitPrice: usd(book.price),
         totalUnits: book.units,
         minUnits: book.min,
@@ -136,7 +153,7 @@ for (const book of books) {
   for (const [i, units] of book.requests.entries()) {
     const s = subscribers[i % subscribers.length]
     if (await connection.getAccountInfo(subscriptionPda(key, s.publicKey))) continue
-    await send([await subscribeIx(programFor(s), offer, s.publicKey, units)], s)
+    await send([await subscribeIx(programFor(s), offer, s.publicKey, units, book.gated ? attestationPda(kyc.credential, kyc.schema, s.publicKey) : null)], s)
   }
   console.log(book.symbol, key.toBase58(), `${book.requests.length} subscriptions`)
   if (book.settle) short.push(key)
@@ -157,7 +174,8 @@ for (const key of short) {
 }
 
 if (CLUSTER !== 'mainnet') {
-  const lines = [`VITE_CLUSTER=${CLUSTER}`, `VITE_RPC_URL=${RPC_URL}`, `VITE_MINT=${mint.toBase58()}`, 'VITE_MINT_DECIMALS=6', 'VITE_MINT_SYMBOL=USDC']
+  const mints = `${mint.toBase58()}:USDC:6,${naira.toBase58()}:cNGN:6`
+  const lines = [`VITE_CLUSTER=${CLUSTER}`, `VITE_RPC_URL=${RPC_URL}`, `VITE_MINT=${mint.toBase58()}`, 'VITE_MINT_DECIMALS=6', 'VITE_MINT_SYMBOL=USDC', `VITE_MINTS=${mints}`, `VITE_KYC_SCHEMA=${kyc.schema.toBase58()}`, `FAUCET_MINTS=${mints}`]
   if (local) lines.push(`FAUCET_KEY=${JSON.stringify([...authority.secretKey])}`)
   const env = [...lines, ''].join('\n')
   const file = join(here, '..', '..', 'app', local ? '.env.development.local' : '.env.production.local')

@@ -74,6 +74,7 @@ export interface State {
   mint?: string
   mintAuthority?: number[]
   treasury?: string
+  naira?: string
   subscribers?: number[][]
   offers?: Record<string, string>
 }

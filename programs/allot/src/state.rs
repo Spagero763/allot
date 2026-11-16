@@ -47,6 +47,7 @@ pub struct Offer {
     pub open_ts: i64,
     pub close_ts: i64,
     pub strategy: Strategy,
+    pub gate: Pubkey,
 
     pub status: OfferStatus,
     pub success: bool,

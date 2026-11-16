@@ -1,6 +1,6 @@
-import { PublicKey, Transaction, TransactionInstruction } from '@solana/web3.js'
+import { Keypair, PublicKey, SystemProgram, Transaction, TransactionInstruction } from '@solana/web3.js'
 import { readFileSync } from 'node:fs'
-import { connection, loadKeypair, sleep } from './env'
+import { connection, loadKeypair, send, sleep } from './env'
 
 const LOADER = new PublicKey('BPFLoaderUpgradeab1e11111111111111111111111')
 const HEADER = 37
@@ -8,10 +8,26 @@ const CHUNK = 900
 const PER_SECOND = Number(process.env.RATE ?? 3)
 
 const [file, bufferArg] = process.argv.slice(2)
-if (!file || !bufferArg) throw new Error('usage: upload.ts <program.so> <buffer address>')
+if (!file || (!bufferArg && !process.env.BUFFER_KEYPAIR)) throw new Error('usage: upload.ts <program.so> <buffer address>  (or BUFFER_KEYPAIR=<path> to create one)')
 const program = readFileSync(file)
-const buffer = new PublicKey(bufferArg)
 const authority = loadKeypair()
+const bufferKey = process.env.BUFFER_KEYPAIR ? loadKeypair(process.env.BUFFER_KEYPAIR) : null
+const buffer = bufferKey ? bufferKey.publicKey : new PublicKey(bufferArg)
+
+if (bufferKey && !(await connection.getAccountInfo(buffer))) {
+  const space = HEADER + program.length
+  const lamports = await connection.getMinimumBalanceForRentExemption(space)
+  const init = new TransactionInstruction({
+    programId: LOADER,
+    keys: [
+      { pubkey: buffer, isSigner: false, isWritable: true },
+      { pubkey: authority.publicKey, isSigner: false, isWritable: false },
+    ],
+    data: Buffer.from([0, 0, 0, 0]),
+  })
+  await send([SystemProgram.createAccount({ fromPubkey: authority.publicKey, newAccountPubkey: buffer, lamports, space, programId: LOADER }), init], authority, [bufferKey])
+  console.log('buffer created', buffer.toBase58(), 'for', space, 'bytes')
+}
 
 function write(offset: number, bytes: Uint8Array): TransactionInstruction {
   const data = Buffer.alloc(4 + 4 + 8 + bytes.length)

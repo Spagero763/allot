@@ -28,6 +28,7 @@ export interface Offer {
   openTs: number
   closeTs: number
   strategy: Strategy
+  gate: PublicKey | null
   status: OfferStatus
   success: boolean
   unitsRequested: bigint
@@ -127,6 +128,7 @@ export function decodeOffer(key: PublicKey, o: RawOffer): Offer {
     openTs: Number(o.openTs),
     closeTs: Number(o.closeTs),
     strategy: enumKey(o.strategy) as Strategy,
+    gate: o.gate.equals(PublicKey.default) ? null : o.gate,
     status: enumKey(o.status) as OfferStatus,
     success: o.success,
     unitsRequested: BigInt(o.unitsRequested.toString()),
@@ -189,7 +191,7 @@ export async function fetchSubscriptionsBy(program: Program<Allot>, subscriber: 
   return all.map((a) => decodeSubscription(a.publicKey, a.account)).sort((a, b) => b.committedTs - a.committedTs)
 }
 
-export function subscribeIx(program: Program<Allot>, offer: Offer, subscriber: PublicKey, units: bigint): Promise<TransactionInstruction> {
+export function subscribeIx(program: Program<Allot>, offer: Offer, subscriber: PublicKey, units: bigint, attestation: PublicKey | null = null): Promise<TransactionInstruction> {
   return program.methods
     .subscribe(new BN(units.toString()))
     .accountsStrict({
@@ -200,6 +202,7 @@ export function subscribeIx(program: Program<Allot>, offer: Offer, subscriber: P
       mint: offer.mint,
       vault: vaultOf(offer),
       subscriberToken: getAssociatedTokenAddressSync(offer.mint, subscriber, true, TOKEN_PROGRAM_ID),
+      attestation,
       tokenProgram: TOKEN_PROGRAM_ID,
       systemProgram: SystemProgram.programId,
     })
@@ -390,6 +393,7 @@ export interface CreateOfferInput {
   closeTs: number
   treasury: PublicKey
   strategy: Strategy
+  gate?: PublicKey | null
   name: string
   symbol: string
   uri: string
@@ -411,6 +415,7 @@ export function createOfferIx(program: Program<Allot>, issuer: PublicKey, input:
       closeTs: new BN(input.closeTs),
       treasury: input.treasury,
       strategy,
+      gate: input.gate ?? PublicKey.default,
       name: input.name,
       symbol: input.symbol,
       uri: input.uri,
@@ -459,4 +464,50 @@ export function refundOf(offer: Offer, sub: { units: bigint; amount: bigint }): 
   const due = sub.amount - kept
   const cut = haircut(offer, sub.amount)
   return due > cut ? due - cut : 0n
+}
+
+export const ATTESTATION_SERVICE = new PublicKey('22zoJMtdu4tQc2PzL74ZUT7FrwgB1Udec8DdW4yw4BdG')
+
+export function credentialPda(authority: PublicKey, name: string): PublicKey {
+  return PublicKey.findProgramAddressSync([seed('credential'), authority.toBytes(), seed(name)], ATTESTATION_SERVICE)[0]
+}
+
+export function schemaPda(credential: PublicKey, name: string, version = 1): PublicKey {
+  return PublicKey.findProgramAddressSync([seed('schema'), credential.toBytes(), seed(name), new Uint8Array([version])], ATTESTATION_SERVICE)[0]
+}
+
+export function attestationPda(credential: PublicKey, schema: PublicKey, subject: PublicKey): PublicKey {
+  return PublicKey.findProgramAddressSync([seed('attestation'), credential.toBytes(), schema.toBytes(), subject.toBytes()], ATTESTATION_SERVICE)[0]
+}
+
+export interface Eligibility {
+  schema: PublicKey
+  credential: PublicKey
+  schemaName: string
+  attestation: PublicKey
+  attested: boolean
+  expiry: number
+}
+
+function text(bytes: Uint8Array, at: number): [string, number] {
+  const len = new DataView(bytes.buffer, bytes.byteOffset).getUint32(at, true)
+  return [new TextDecoder().decode(bytes.subarray(at + 4, at + 4 + len)), at + 4 + len]
+}
+
+export async function fetchEligibility(connection: Connection, offer: Offer, subject: PublicKey): Promise<Eligibility | null> {
+  if (!offer.gate) return null
+  const schemaInfo = await connection.getAccountInfo(offer.gate)
+  if (!schemaInfo || !schemaInfo.owner.equals(ATTESTATION_SERVICE) || schemaInfo.data[0] !== 1) return null
+  const credential = new PublicKey(schemaInfo.data.subarray(1, 33))
+  const [schemaName] = text(schemaInfo.data, 33)
+  const attestation = attestationPda(credential, offer.gate, subject)
+  const info = await connection.getAccountInfo(attestation)
+  let attested = false
+  let expiry = 0
+  if (info && info.owner.equals(ATTESTATION_SERVICE) && info.data[0] === 2) {
+    const len = new DataView(info.data.buffer, info.data.byteOffset).getUint32(97, true)
+    expiry = Number(new DataView(info.data.buffer, info.data.byteOffset).getBigInt64(101 + len + 32, true))
+    attested = expiry === 0 || expiry > Date.now() / 1000
+  }
+  return { schema: offer.gate, credential, schemaName, attestation, attested, expiry }
 }

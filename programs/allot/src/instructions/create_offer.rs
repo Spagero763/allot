@@ -21,6 +21,7 @@ pub struct CreateOfferArgs {
     pub close_ts: i64,
     pub treasury: Pubkey,
     pub strategy: Strategy,
+    pub gate: Pubkey,
     pub name: String,
     pub symbol: String,
     pub uri: String,
@@ -108,6 +109,7 @@ pub fn handle_create_offer(ctx: Context<CreateOffer>, args: CreateOfferArgs) -> 
     offer.open_ts = args.open_ts;
     offer.close_ts = args.close_ts;
     offer.strategy = args.strategy;
+    offer.gate = args.gate;
     offer.status = OfferStatus::Open;
     offer.name = args.name.clone();
     offer.symbol = args.symbol.clone();

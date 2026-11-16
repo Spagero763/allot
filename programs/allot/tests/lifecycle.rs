@@ -2,6 +2,7 @@ mod common;
 
 use {
     allot::state::*,
+    anchor_lang::prelude::Pubkey,
     common::*,
     solana_signer::Signer,
 };
@@ -316,4 +317,47 @@ fn a_shortfall_never_blocks_settlement_of_a_filled_book() {
     let treasury = w.token_balance(&w.treasury.pubkey());
     assert_eq!(paid + fee + treasury, usdc(2_000) - 1_234_567);
     assert_eq!(w.balance(&w.vault_of(&offer)), 0);
+}
+
+#[test]
+fn a_gated_book_admits_only_attested_wallets() {
+    let mut w = World::new();
+    w.init_config(50);
+    let credential = Pubkey::new_unique();
+    let schema = Pubkey::new_unique();
+    let mut args = w.offer_args(1);
+    args.gate = schema;
+    let offer = w.create_offer(args).unwrap();
+
+    let a = w.subscriber(usdc(500));
+    assert!(w.subscribe(&offer, &a, 100).unwrap_err().contains("NotEligible"));
+
+    let other_schema = Pubkey::new_unique();
+    let wrong = w.attest(&credential, &other_schema, &a.pubkey(), 0);
+    assert!(w.subscribe_with(&offer, &a, 100, Some(wrong)).unwrap_err().contains("NotEligible"));
+
+    let expired = w.attest(&credential, &schema, &a.pubkey(), w.now - 1);
+    assert!(w.subscribe_with(&offer, &a, 100, Some(expired)).unwrap_err().contains("NotEligible"));
+
+    let b = w.subscriber(usdc(500));
+    let someone_elses = w.attest(&credential, &schema, &b.pubkey(), 0);
+    assert!(w.subscribe_with(&offer, &a, 100, Some(someone_elses)).unwrap_err().contains("NotEligible"));
+
+    let valid = w.attest(&credential, &schema, &a.pubkey(), w.now + 86_400);
+    w.subscribe_with(&offer, &a, 100, Some(valid)).unwrap();
+    assert_eq!(w.offer(&offer).units_requested, 100);
+
+    let forever = w.attest(&credential, &schema, &b.pubkey(), 0);
+    w.subscribe_with(&offer, &b, 50, Some(forever)).unwrap();
+    assert_eq!(w.offer(&offer).subscriber_count, 2);
+}
+
+#[test]
+fn an_open_book_ignores_attestations() {
+    let mut w = World::new();
+    w.init_config(50);
+    let offer = w.create_offer(w.offer_args(1)).unwrap();
+    let a = w.subscriber(usdc(100));
+    w.subscribe_with(&offer, &a, 10, Some(Pubkey::new_unique())).unwrap();
+    assert_eq!(w.offer(&offer).units_requested, 10);
 }

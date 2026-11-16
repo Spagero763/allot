@@ -4,7 +4,7 @@ import { useWallet } from '@solana/wallet-adapter-react'
 import { PublicKey } from '@solana/web3.js'
 import { createOfferIx, offerPda, type Strategy } from 'allot-sdk'
 import { useNow, useOffers, useProgram, useSend } from '@/lib/hooks'
-import { DEFAULT_MINT, DEFAULT_MINT_DECIMALS, DEFAULT_MINT_SYMBOL } from '@/lib/mints'
+import { KYC_SCHEMA, MINTS, mintInfo } from '@/lib/mints'
 import { money, units } from '@/lib/format'
 import { Page, Reveal } from '@/ui/motion'
 import { TxNote } from './Offer'
@@ -34,11 +34,14 @@ export function Issue() {
     duration: '60',
     treasury: '',
     strategy: 'idle' as Strategy,
+    mint: MINTS[0].mint.toBase58(),
+    gate: '',
   })
+  const money_ = mintInfo(new PublicKey(form.mint))
   const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setForm((f) => ({ ...f, [k]: e.target.value }))
 
   const parsed = useMemo(() => {
-    const price = BigInt(Math.round(Number(form.unitPrice || 0) * 10 ** DEFAULT_MINT_DECIMALS))
+    const price = BigInt(Math.round(Number(form.unitPrice || 0) * 10 ** money_.decimals))
     return {
       unitPrice: price,
       totalUnits: BigInt(form.totalUnits || 0),
@@ -49,11 +52,11 @@ export function Issue() {
       openTs: now + Number(form.opensIn || 0) * 60,
       closeTs: now + Number(form.opensIn || 0) * 60 + Number(form.duration || 0) * 60,
     }
-  }, [form])
+  }, [form, money_.decimals])
   const raise = parsed.unitPrice * parsed.totalUnits
   const preview = useMemo(
-    () => previewBook(form.name, form.symbol.toUpperCase(), Number(parsed.totalUnits), Number(parsed.unitPrice) / 10 ** DEFAULT_MINT_DECIMALS, Number(parsed.floorUnits), DEFAULT_MINT_SYMBOL),
-    [form.name, form.symbol, parsed.totalUnits, parsed.unitPrice, parsed.floorUnits],
+    () => previewBook(form.name, form.symbol.toUpperCase(), Number(parsed.totalUnits), Number(parsed.unitPrice) / 10 ** money_.decimals, Number(parsed.floorUnits), money_.symbol),
+    [form.name, form.symbol, parsed.totalUnits, parsed.unitPrice, parsed.floorUnits, money_.decimals, money_.symbol],
   )
   const valid =
     form.name.length > 0 && form.name.length <= 32 && form.symbol.length > 0 && form.symbol.length <= 10 && form.uri.length <= 128 && parsed.unitPrice > 0n && parsed.totalUnits > 0n && parsed.minUnits >= 1n && parsed.floorUnits <= parsed.totalUnits && parsed.minRaiseUnits <= parsed.totalUnits && Number(form.duration) > 0
@@ -67,18 +70,21 @@ export function Issue() {
     if (!publicKey) return
     reset()
     let treasury: PublicKey
+    let gate: PublicKey | null
     try {
       treasury = form.treasury ? new PublicKey(form.treasury) : publicKey
+      gate = form.gate ? new PublicKey(form.gate) : null
     } catch {
       return
     }
     const offerId = BigInt(Date.now())
     const ix = await createOfferIx(program, publicKey, {
       offerId,
-      mint: DEFAULT_MINT,
+      mint: new PublicKey(form.mint),
       ...parsed,
       treasury,
       strategy: form.strategy,
+      gate,
       name: form.name,
       symbol: form.symbol.toUpperCase(),
       uri: form.uri,
@@ -122,7 +128,16 @@ export function Issue() {
 
           <Group title="Terms">
             <div className="grid grid-cols-2 gap-4">
-              <Field label={`Unit price (${DEFAULT_MINT_SYMBOL})`}>
+              <Field label="Settled in">
+                <select className="field" value={form.mint} onChange={set('mint')}>
+                  {MINTS.map((m) => (
+                    <option key={m.mint.toBase58()} value={m.mint.toBase58()}>
+                      {m.symbol}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+              <Field label={`Unit price (${money_.symbol})`}>
                 <input className="field tabular" inputMode="decimal" value={form.unitPrice} onChange={set('unitPrice')} />
               </Field>
               <Field label="Units offered">
@@ -161,12 +176,22 @@ export function Issue() {
                 <option value="jupiterLend">Lend it on Jupiter until close (mainnet)</option>
               </select>
             </Field>
+            <Field label="Who can commit" hint="an attestation schema address; the program checks every subscriber against it">
+              <select className="field" value={KYC_SCHEMA && form.gate === KYC_SCHEMA.toBase58() ? 'kyc' : form.gate ? 'custom' : 'open'} onChange={(e) => setForm((f) => ({ ...f, gate: e.target.value === 'kyc' && KYC_SCHEMA ? KYC_SCHEMA.toBase58() : e.target.value === 'custom' ? f.gate || ' ' : '' }))}>
+                <option value="open">Anyone with a wallet</option>
+                {KYC_SCHEMA && <option value="kyc">Wallets verified under the Allot KYC schema</option>}
+                <option value="custom">Wallets attested under a schema I name</option>
+              </select>
+              {form.gate && (!KYC_SCHEMA || form.gate !== KYC_SCHEMA.toBase58()) && (
+                <input className="field mono mt-2 text-sm" value={form.gate.trim()} onChange={set('gate')} placeholder="schema address" />
+              )}
+            </Field>
           </Group>
 
           <div className="rounded-2xl bg-ink-2 p-5 text-sm">
             <div className="flex justify-between">
               <span className="text-mute">Raise</span>
-              <span className="tabular">{money(raise, DEFAULT_MINT_DECIMALS, DEFAULT_MINT_SYMBOL)}</span>
+              <span className="tabular">{money(raise, money_.decimals, money_.symbol)}</span>
             </div>
             <div className="mt-2 flex justify-between">
               <span className="text-mute">Units</span>

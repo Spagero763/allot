@@ -7,15 +7,18 @@ function localApi(): Plugin {
     name: 'local-api',
     configureServer(server) {
       const env = loadEnv(server.config.mode, server.config.root, '')
-      server.middlewares.use('/api/faucet', async (req, res) => {
-        const chunks: Buffer[] = []
-        for await (const chunk of req) chunks.push(chunk as Buffer)
-        const { drip } = await server.ssrLoadModule('/api/faucet.ts')
-        const response: Response = await drip(env, new Request('http://local/api/faucet', { method: 'POST', body: Buffer.concat(chunks) }))
-        res.statusCode = response.status
-        res.setHeader('content-type', 'application/json')
-        res.end(await response.text())
-      })
+      const route = (path: string, file: string, name: string) =>
+        server.middlewares.use(path, async (req, res) => {
+          const chunks: Buffer[] = []
+          for await (const chunk of req) chunks.push(chunk as Buffer)
+          const mod = await server.ssrLoadModule(file)
+          const response: Response = await mod[name](env, new Request('http://local' + path, { method: 'POST', body: Buffer.concat(chunks) }))
+          res.statusCode = response.status
+          res.setHeader('content-type', 'application/json')
+          res.end(await response.text())
+        })
+      route('/api/faucet', '/api/faucet.ts', 'drip')
+      route('/api/verify', '/api/verify.ts', 'verify')
     },
   }
 }
