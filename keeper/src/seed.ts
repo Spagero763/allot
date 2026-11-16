@@ -6,7 +6,7 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { CLUSTER, RPC_URL, chainNow, connection, keyOf, loadKeypair, pk, programFor, readState, send, sleep, writeState } from './env'
 import { work } from './keeper'
-import { createMint, giveSol, mintTo, usd } from './tokens'
+import { balanceOf, createMint, giveSol, mintTo, usd } from './tokens'
 
 const payer = loadKeypair()
 const program = programFor(payer)
@@ -80,7 +80,10 @@ if (!state.subscribers) {
   console.log('subscribers funded', keys.length)
 }
 const subscribers = state.subscribers.map(keyOf)
-for (const s of subscribers) await attestWallet(authority, kyc.credential, kyc.schema, s.publicKey)
+for (const s of subscribers) {
+  await attestWallet(authority, kyc.credential, kyc.schema, s.publicKey)
+  if ((await balanceOf(naira, s.publicKey)) === 0n) await mintTo(payer, naira, authority, s.publicKey, usd(80_000_000))
+}
 
 if (!state.treasury) {
   state.treasury = Keypair.generate().publicKey.toBase58()
