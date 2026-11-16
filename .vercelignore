@@ -1,0 +1,9 @@
+node_modules
+target
+test-ledger
+keeper/.state
+programs/allot/tests/fixtures
+.git
+.github
+docs
+*.mp4

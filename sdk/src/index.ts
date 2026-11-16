@@ -401,7 +401,7 @@ export interface CreateOfferInput {
 
 export function createOfferIx(program: Program<Allot>, issuer: PublicKey, input: CreateOfferInput): Promise<TransactionInstruction> {
   const offer = offerPda(issuer, input.offerId)
-  const strategy = input.strategy === 'jupiterLend' ? { jupiterLend: {} } : { idle: {} }
+  const strategy: { idle: Record<string, never> } | { jupiterLend: Record<string, never> } = input.strategy === 'jupiterLend' ? { jupiterLend: {} } : { idle: {} }
   return program.methods
     .createOffer({
       offerId: new BN(input.offerId.toString()),

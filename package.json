@@ -14,5 +14,14 @@
     "e2e:lend": "pnpm --filter keeper e2e:lend",
     "fixtures": "scripts/fetch-jupiter-fixtures.sh",
     "validator": "scripts/local-validator.sh"
+  },
+  "engines": {
+    "node": "24.x"
+  },
+  "dependencies": {
+    "@solana/attestation": "^2.1.0",
+    "@solana/kit": "^8.6.0",
+    "@solana/spl-token": "^0.4.15",
+    "@solana/web3.js": "^1.99.0"
   }
 }

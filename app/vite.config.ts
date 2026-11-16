@@ -1,3 +1,4 @@
+import { resolve } from 'node:path'
 import { defineConfig, loadEnv, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
@@ -17,8 +18,8 @@ function localApi(): Plugin {
           res.setHeader('content-type', 'application/json')
           res.end(await response.text())
         })
-      route('/api/faucet', '/api/faucet.ts', 'drip')
-      route('/api/verify', '/api/verify.ts', 'verify')
+      route('/api/faucet', '/@fs/' + resolve(__dirname, '../api/faucet.ts'), 'drip')
+      route('/api/verify', '/@fs/' + resolve(__dirname, '../api/verify.ts'), 'verify')
     },
   }
 }
