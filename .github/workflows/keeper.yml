@@ -28,6 +28,7 @@ jobs:
           RPC_URL: ${{ secrets.RPC_URL }}
           KEEPER_KEY: ${{ secrets.KEEPER_KEY }}
         run: |
+          if [ -z "$KEEPER_KEY" ] || [ -z "$RPC_URL" ]; then echo "keeper secrets not set"; exit 0; fi
           umask 077
           printf '%s' "$KEEPER_KEY" > "$RUNNER_TEMP/keeper.json"
           KEYPAIR="$RUNNER_TEMP/keeper.json" pnpm --filter keeper exec tsx src/keeper.ts --once

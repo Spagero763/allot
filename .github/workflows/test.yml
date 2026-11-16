@@ -10,13 +10,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
       - uses: dtolnay/rust-toolchain@1.89.0
       - uses: Swatinem/rust-cache@v2
       - name: Install Solana and Anchor
         run: |
           sh -c "$(curl -sSfL https://release.anza.xyz/v3.1.10/install)"
           echo "$HOME/.local/share/solana/install/active_release/bin" >> "$GITHUB_PATH"
-          cargo install --git https://github.com/solana-foundation/anchor --tag v1.2.2 anchor-cli --locked
+          cargo +stable install --git https://github.com/solana-foundation/anchor --tag v1.2.2 anchor-cli --locked
       - run: anchor build --arch v0
       - run: cargo test -p allot
 
