@@ -123,11 +123,11 @@ const books: Book[] = [
 state.offers ??= {}
 const short: PublicKey[] = []
 for (const book of books) {
-  if (state.offers[book.slug] && (await connection.getAccountInfo(pk(state.offers[book.slug])))) continue
+  const existing = state.offers[book.slug] && (await connection.getAccountInfo(pk(state.offers[book.slug]))) ? pk(state.offers[book.slug]) : null
   const now = await chainNow()
   const offerId = BigInt(Date.now())
-  const key = offerPda(payer.publicKey, offerId)
-  await send(
+  const key = existing ?? offerPda(payer.publicKey, offerId)
+  if (!existing) await send(
     [
       await createOfferIx(program, payer.publicKey, {
         offerId,
@@ -153,6 +153,7 @@ for (const book of books) {
   state.offers[book.slug] = key.toBase58()
   writeState(state)
   const offer = (await fetchOffer(program, key))!
+  if (offer.status !== 'open') continue
   for (const [i, units] of book.requests.entries()) {
     const s = subscribers[i % subscribers.length]
     if (await connection.getAccountInfo(subscriptionPda(key, s.publicKey))) continue

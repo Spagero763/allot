@@ -50,14 +50,18 @@ The formula, the yield split, the loss rule and the invariants are written out i
 
 Program: [`BJxkmWB63H6yzkmm3Vrv5a9zGe7FPfPe1uFcur77kTD3`](https://explorer.solana.com/address/BJxkmWB63H6yzkmm3Vrv5a9zGe7FPfPe1uFcur77kTD3?cluster=devnet)
 
-Four books are seeded, and two of them have run their whole life on chain:
+Six books are seeded, and two of them have run their whole life on chain:
 
 | Book | State | What to look at |
 | --- | --- | --- |
-| [Adire Collective Fund I](https://explorer.solana.com/address/7maQjjNrTgjLw1F1jwstNuvzAwgiXbhQe5rrW6FyJ5N5?cluster=devnet) | Settled. 36,650 units requested for 20,000 on offer | [close](https://explorer.solana.com/tx/e2UqTDPDm8ZpsqwFEpG34mVYqxGaVWLZikgFtvFphCRqQgxfjRPNc76xZGEcQ2C6JZGscyRhv3jartvLSndgj52?cluster=devnet), [five allotments with refunds and receipts in one transaction](https://explorer.solana.com/tx/WfribMYYgrQyJiDqxyborhMXzcpq1NszF1dKVTSbh7HPgiMtZNQ7WNTVusUA1JARBrxwm7WF28wgCDtc7k1n57p?cluster=devnet), [issuer paid](https://explorer.solana.com/tx/1uqMb9N9oTKUvog8HaGcKMguJPVGEz6vs96uRnatWQ19NbWx3rjKktScgQ9ShmsGzVfvBzinZuLRftmqghHFrd8?cluster=devnet) |
-| [Mangrove Cold Chain](https://explorer.solana.com/address/B6z1yYxzGZ3CYgKzmbRWbr2dao9X6zUFY4Cadrm36opF?cluster=devnet) | Missed its minimum raise. Everyone refunded in full | [close](https://explorer.solana.com/tx/u74Am5a7PMavPDuQpHTL3szW8XMjdWg7o1s1zQntjsrrstuT3tUVTL7pjJGvUuLHMXgLWYq7HGkTYUGxCD5jti9?cluster=devnet), [three refunds in one transaction](https://explorer.solana.com/tx/yoGhCBP24jZCWTT2sDu5xZu9PyNxMPEdd2SX7F6ZJT2cpvFZbZKEegLa9JeMidZQVDuiF9mnWkoA567fuHV6FxE?cluster=devnet) |
-| [Kuramo Terminals Series A](https://explorer.solana.com/address/Ps5qeem98DaVyMGkHwDe2u3q3YJAZzzigHQbcdCJBV4?cluster=devnet) | Open, 2.57 times oversubscribed | Subscribe with test USDC from the faucet |
-| [Savannah Grid Notes 2028](https://explorer.solana.com/address/7dLxMornNsr9CfQr7v4FSJm6WfaazxoSpRUcuqcK1hii?cluster=devnet) | Open, below its minimum raise so far | Subscribe with test USDC from the faucet |
+| [Adire Collective Fund I](https://explorer.solana.com/address/fM1UUfaJYFjZKLET5mDEvycTe5BfdUWpjz6wBv2rsUm?cluster=devnet) | Settled. 36,650 units requested for 20,000 on offer | [close](https://explorer.solana.com/tx/3v5xG3CRJUcW5pLosC3YkJS31vLSzYZuBBpLRdRsP6Hv2Sii5BrkKAWHq9hcN9mAWyq5cjRZFX7pyJif4sWSzPQb?cluster=devnet), [five allotments with refunds and receipts in one transaction](https://explorer.solana.com/tx/4teMjxZp2stUkPpEvrNRgwJUqHFTyPacLTJWynU3StnQoncmu2CVfu6q5dLWkkimxZ7kCzLH3bBvXDT7hFJ7n3Ag?cluster=devnet), [issuer paid](https://explorer.solana.com/tx/5qACRHTh242eSBdJHozgcSWfDuiY4oDCVh5FEdAgdXyZSFp22uNvpJgr5hNaCTF9HVxLaU59smAUER2xCZoscdzz?cluster=devnet) |
+| [Mangrove Cold Chain](https://explorer.solana.com/address/6KMoqYddFtMPpRBMnj1LhEgaZS7PUsPAME1HUXfUKT5K?cluster=devnet) | Missed its minimum raise. Everyone refunded in full | [close](https://explorer.solana.com/tx/LeJn7KQs293B5eWkmYP6dDhFEV2Hiv61TPgvU9jiUtitppa71TjRjx215rw6HpnqbAjUvPrsvHKS5UGsADpRaqH?cluster=devnet), [three refunds in one transaction](https://explorer.solana.com/tx/2tyZmCzfXmShDGyWG5fSaQ4GM93YddvDeP83vPW37yh7MA2Tb6CxXdjCpq56jKKvPfPe5vB4AdHynNhpavAGaA6h?cluster=devnet) |
+| [Lekki Cold Storage Trust](https://explorer.solana.com/address/FkvYnZ4dFMaArawUfdzvGDrqYfNHjfV2ie5wMSTqjzkj?cluster=devnet) | Open, verified wallets only, 1.26 times oversubscribed | Press "Verify me" on the book page to get a demo attestation, then subscribe. A commit without one is refused by the program |
+| [Lagos Water Notes 2029](https://explorer.solana.com/address/95RFqtHdJzP4nxYzzwU6xKQBW51Z5z2S6zDKkdCVBGAh?cluster=devnet) | Open, priced in naira (test cNGN) | The faucet hands out cNGN on this page |
+| [Kuramo Terminals Series A](https://explorer.solana.com/address/5d9hJFGozrWEmMKoC9TwSkQXMkwitDArcaVmBfrBeySH?cluster=devnet) | Open, 2.57 times oversubscribed | Subscribe with test USDC from the faucet |
+| [Savannah Grid Notes 2028](https://explorer.solana.com/address/BEHSCxeZazdkGNmcJvS3Y4B3NzKJgBGLp8PAssh9VyNX?cluster=devnet) | Open, below its minimum raise so far | Subscribe with test USDC from the faucet |
+
+The demo KYC schema is [`GYY17CBk1SgdVVFTLHRa8LtQtK836LytpQupLp7NLp2J`](https://explorer.solana.com/address/GYY17CBk1SgdVVFTLHRa8LtQtK836LytpQupLp7NLp2J?cluster=devnet) on the Solana Attestation Service.
 
 Jupiter Lend has no market on devnet, so devnet books hold their money in the vault. The lending path runs in the tests and on the local validator described below, both against the real Jupiter programs.
 
