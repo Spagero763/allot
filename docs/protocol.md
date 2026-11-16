@@ -8,7 +8,7 @@ Allot is a primary-market engine on Solana. An issuer opens a book for a fixed n
 Protocol admin, fee in basis points, fee destination, pause flag.
 
 **Offer** `["offer", issuer, offer_id]`
-Issuer, settlement mint, unit price, total units, per-subscriber minimum and maximum, guaranteed floor per subscriber, minimum raise, open and close timestamps, status, running totals (units requested, principal, floor demand, time weight, subscriber count), amount in the strategy, results (yield total, loss, units allotted, subscriptions processed), issuer treasury, receipt mint, strategy, fee snapshot.
+Issuer, settlement mint, unit price, total units, per-subscriber minimum and maximum, guaranteed floor per subscriber, minimum raise, open and close timestamps, an optional attestation schema that gates subscriptions, status, running totals (units requested, principal, floor demand, time weight, subscriber count), amount in the strategy, results (yield total, loss, units allotted, subscriptions processed), issuer treasury, receipt mint, strategy, fee snapshot.
 
 **Subscription** `["sub", offer, subscriber]`
 Subscriber, units requested, amount paid, commit timestamp, time weight, allotted units, refund, yield share, settled flag.
@@ -22,7 +22,7 @@ Token-2022 mint with zero decimals and on-chain metadata. One token is one allot
 ## Lifecycle
 
 1. `create_offer` (issuer). Creates the offer, the vault and the receipt mint. Terms are immutable after this.
-2. `subscribe` (subscriber). Allowed between open and close. Transfers `units * unit_price` into the vault and records the commit time. One subscription per wallet per offer.
+2. `subscribe` (subscriber). Allowed between open and close. Transfers `units * unit_price` into the vault and records the commit time. One subscription per wallet per offer. If the offer names a gate schema, the subscriber passes their attestation account and the program checks it (see Eligibility).
 3. `cancel_subscription` (subscriber). Allowed while the book is open. Returns the principal.
 4. `sweep` (issuer or protocol admin, while open). Lends idle vault balance through the strategy. At least 10% of the principal must stay in the vault so subscribers can leave without waiting.
 5. `unsweep` (issuer, admin, any subscriber of the offer, or anyone once the close time has passed). Redeems the whole position back into the vault.
@@ -56,6 +56,12 @@ Lending carries risk. If the vault holds less than the principal at close, the d
 ## Proof
 
 `programs/allot/tests/strategy.rs` runs the whole path against the real Jupiter Lend and liquidity programs and a snapshot of their mainnet accounts for USDC, loaded into the test VM. `scripts/fetch-jupiter-fixtures.sh` refreshes the snapshot. `scripts/local-validator.sh` boots a local validator with the same state so the app and the keeper can be run against it.
+
+## Eligibility
+
+An offer may carry a `gate`: the address of a schema account in the Solana Attestation Service. When it is set, `subscribe` requires an attestation account and checks, without a CPI, that the account is owned by the attestation program, carries the attestation discriminator, names that schema, was issued for the subscriber (the attestation nonce equals the subscriber's key), has not expired, and sits at the canonical address `["attestation", credential, schema, subscriber]`. Anything else fails with `NotEligible`.
+
+Who issues attestations is the issuer's choice, made by choosing the schema. The program does not care whether that is a KYC provider, a registrar or the issuer itself. A closed attestation has no account, so revocation needs no extra handling.
 
 ## Fees
 

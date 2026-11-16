@@ -166,7 +166,7 @@ export function decodeSubscription(key: PublicKey, s: RawSub): Subscription {
 }
 
 export async function fetchOffers(program: Program<Allot>): Promise<Offer[]> {
-  const all = await program.account.offer.all()
+  const all = await program.account.offer.all([{ dataSize: program.account.offer.size }])
   return all.map((a) => decodeOffer(a.publicKey, a.account)).sort((a, b) => b.openTs - a.openTs)
 }
 

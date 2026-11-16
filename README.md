@@ -13,6 +13,8 @@ On the usual rails that return takes weeks. The money earns nothing while it wai
 - **The book is an account.** Terms are fixed when the offer is created: units, price, per-wallet limits, a guaranteed floor per subscriber, a minimum raise, open and close times. Nobody can change them afterwards, including the issuer and the protocol.
 - **Allotment is a formula on chain.** Each subscriber first receives the guaranteed floor, and the rest is shared pro rata. Every input sits on the offer account, so any allotment can be recomputed by hand. The app has a page that does exactly that for any subscriber.
 - **Refunds are instant.** One transaction returns the unallotted money, pays the subscriber's share of the yield and mints receipt tokens for the units they received.
+- **Only eligible wallets can commit, when the issuer wants that.** An offer can name an attestation schema from the Solana Attestation Service. The program then refuses any commit from a wallet without a valid, unexpired attestation under that schema. KYC, residency or accreditation checks stay with whoever issues the attestation; the enforcement is on chain.
+- **Any stablecoin.** Books are denominated in whatever SPL token the issuer chooses. The demo runs books in USDC and in naira (cNGN).
 - **Waiting money earns.** While the book is open, idle funds can be lent on Jupiter Lend. Yield is split by how much each subscriber committed and for how long.
 - **Nothing needs permission to finish.** Closing, allotting and paying the issuer can be called by anyone once the time has passed. If the keeper is offline, any subscriber can settle the book from the app.
 - **A failed raise costs subscribers nothing.** If the minimum raise is not met, or the issuer cancels, everyone gets their full commitment back plus yield.
@@ -20,7 +22,7 @@ On the usual rails that return takes weeks. The money earns nothing while it wai
 ## How a book runs
 
 1. The issuer calls `create_offer`. The program creates the offer, its vault and a Token-2022 receipt mint with metadata on the mint.
-2. Subscribers call `subscribe` and can leave with `cancel_subscription` while the book is open.
+2. Subscribers call `subscribe`, passing their attestation if the book is gated, and can leave with `cancel_subscription` while the book is open.
 3. The issuer or the keeper calls `sweep` to lend idle funds, always leaving 10% in the vault so subscribers can leave without waiting. `unsweep` brings everything back.
 4. After the close time anyone calls `close_offer`. The program records whether the raise succeeded and how much yield arrived.
 5. Anyone calls `allot` for each subscription: allotment, refund, yield share and receipts in a single transaction.
@@ -30,10 +32,10 @@ The formula, the yield split, the loss rule and the invariants are written out i
 
 ## What has been verified
 
-**Program tests.** `cargo test -p allot` runs 23 tests in a local VM against the compiled program:
+**Program tests.** `cargo test -p allot` runs 25 tests in a local VM against the compiled program:
 
 - 8 on the allotment, yield, fee and shortfall maths.
-- 12 on the full lifecycle, including an oversubscribed book with a floor, a failed raise, a cancelled offer, a subscriber leaving, and two shortfall cases.
+- 14 on the full lifecycle, including an oversubscribed book with a floor, a failed raise, a cancelled offer, a subscriber leaving, two shortfall cases, and a gated book that rejects missing, foreign, expired and wrong-schema attestations.
 - 3 on the lending path, run against the real Jupiter Lend and liquidity programs with a snapshot of their mainnet USDC accounts. In that test 135,000 USDC lent for 30 days returned 604.70 USDC of yield, and every refund, yield share, fee and payout added up to the vault balance exactly.
 
 **End to end through the client.** `pnpm e2e` drives the lifecycle through the TypeScript SDK on a validator: three allotments with refunds and receipts land in one transaction. `pnpm e2e:lend` does the same for the lending path on a local validator that runs the Jupiter programs.
@@ -96,7 +98,7 @@ MINT=EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v pnpm seed
 pnpm dev
 ```
 
-The seed opens four books: one oversubscribed and lending on Jupiter, one quiet, one that has already settled and one that failed its minimum raise and refunded everyone. The app's faucet hands out test USDC and a little SOL for fees.
+The seed opens six books: one oversubscribed and lending on Jupiter, one quiet, one priced in naira, one open only to wallets with a demo KYC attestation, one that has already settled and one that failed its minimum raise and refunded everyone. The app's faucet hands out test USDC or cNGN and a little SOL for fees, and a demo verifier records a KYC attestation for any wallet that asks.
 
 The program is built with `--arch v0` on purpose. Anchor 1.2 defaults to a newer bytecode version that public clusters do not run yet.
 
