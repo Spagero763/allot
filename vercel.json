@@ -1,6 +1,6 @@
 {
   "installCommand": "pnpm install --frozen-lockfile",
-  "buildCommand": "pnpm --filter app build",
+  "buildCommand": "pnpm --filter app build && node scripts/bundle-functions.mjs",
   "outputDirectory": "app/dist",
   "framework": null,
   "rewrites": [
@@ -8,5 +8,11 @@
       "source": "/((?!api/).*)",
       "destination": "/index.html"
     }
-  ]
+  ],
+  "functions": {
+    "api/*.js": {
+      "maxDuration": 60,
+      "memory": 1024
+    }
+  }
 }

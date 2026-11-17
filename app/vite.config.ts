@@ -18,8 +18,8 @@ function localApi(): Plugin {
           res.setHeader('content-type', 'application/json')
           res.end(await response.text())
         })
-      route('/api/faucet', '/@fs/' + resolve(__dirname, '../api/faucet.ts'), 'drip')
-      route('/api/verify', '/@fs/' + resolve(__dirname, '../api/verify.ts'), 'verify')
+      route('/api/faucet', '/@fs/' + resolve(__dirname, '../functions/faucet.ts'), 'drip')
+      route('/api/verify', '/@fs/' + resolve(__dirname, '../functions/verify.ts'), 'verify')
     },
   }
 }

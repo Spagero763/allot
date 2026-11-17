@@ -13,3 +13,4 @@ dist
 .vercel
 keeper/.state
 test-ledger
+/api/

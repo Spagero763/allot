@@ -1,5 +1,7 @@
 # Allot
 
+Live on devnet: **https://allot-navy.vercel.app**
+
 Primary markets on Solana. An issuer opens a book, people commit stablecoins from their own wallets, and when the book closes the program allots, refunds and pays everyone in one pass that anyone can check.
 
 ## The problem
@@ -47,6 +49,8 @@ The formula, the yield split, the loss rule and the invariants are written out i
 - If lending ever returns less than was put in, the shortfall is shared pro rata and settlement still completes. No path leaves money stuck in the vault.
 
 ## Live on devnet
+
+Site: https://allot-navy.vercel.app (subscribe with a Solana wallet; the page hands out test USDC or cNGN and a demo attestation).
 
 Program: [`BJxkmWB63H6yzkmm3Vrv5a9zGe7FPfPe1uFcur77kTD3`](https://explorer.solana.com/address/BJxkmWB63H6yzkmm3Vrv5a9zGe7FPfPe1uFcur77kTD3?cluster=devnet)
 

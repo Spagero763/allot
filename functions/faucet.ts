@@ -69,6 +69,10 @@ export async function drip(env: Env, request: Request): Promise<Response> {
   }
 }
 
-export function POST(request: Request): Promise<Response> {
-  return drip(process.env, request)
+export async function POST(request: Request): Promise<Response> {
+  try {
+    return await drip(process.env, request)
+  } catch (e) {
+    return json({ error: String((e as Error).stack ?? e).slice(0, 600) }, 500)
+  }
 }
