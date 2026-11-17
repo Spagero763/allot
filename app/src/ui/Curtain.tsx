@@ -2,7 +2,7 @@ import { useLayoutEffect, useRef } from 'react'
 import { useLocation } from 'react-router-dom'
 import { gsap, reduced } from './scroll'
 
-const titles: Record<string, string> = { '': 'Offers', o: 'The book', me: 'Portfolio', issue: 'Open a book', verify: 'Check it', developers: 'Developers' }
+const titles: Record<string, string> = { '': 'Offers', o: 'The book', me: 'Portfolio', issue: 'Open a book', verify: 'Check it', developers: 'Developers', privacy: 'Privacy', terms: 'Terms' }
 
 export function Curtain() {
   const { pathname } = useLocation()

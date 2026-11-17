@@ -6,6 +6,7 @@ import { Portfolio } from './pages/Portfolio'
 import { Issue } from './pages/Issue'
 import { Verify } from './pages/Verify'
 import { Developers } from './pages/Developers'
+import { Privacy, Terms } from './pages/Legal'
 
 export function App() {
   return (
@@ -17,6 +18,8 @@ export function App() {
         <Route path="issue" element={<Issue />} />
         <Route path="verify/:offer/:subscriber" element={<Verify />} />
         <Route path="developers" element={<Developers />} />
+        <Route path="privacy" element={<Privacy />} />
+        <Route path="terms" element={<Terms />} />
       </Route>
     </Routes>
   )

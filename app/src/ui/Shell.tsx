@@ -87,6 +87,14 @@ export function Shell() {
       <footer className="mx-auto max-w-6xl px-4 pb-10 pt-24 text-sm text-mute md:px-6">
         <div className="flex flex-col gap-3 border-t border-line pt-6 md:flex-row md:items-center md:justify-between">
           <span>Allot. Primary markets, settled by the chain.</span>
+          <span className="flex gap-5">
+            <NavLink to="/privacy" className="hover:text-paper">
+              Privacy
+            </NavLink>
+            <NavLink to="/terms" className="hover:text-paper">
+              Terms
+            </NavLink>
+          </span>
           <span className="mono flex items-center gap-2">
             <span className="live-dot inline-block h-1.5 w-1.5 rounded-full bg-mint" />
             {CLUSTER}
