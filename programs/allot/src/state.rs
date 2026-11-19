@@ -166,3 +166,13 @@ pub struct Unswept {
     pub deployed: u64,
     pub returned: u64,
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn offer_space_matches_the_sdk_filter() {
+        assert_eq!(8 + Offer::INIT_SPACE, 557);
+    }
+}

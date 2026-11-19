@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { TOKEN_2022_PROGRAM_ID } from '@solana/spl-token'
 import { Keypair, SystemProgram } from '@solana/web3.js'
-import { allotIx, allotment, closeOfferIx, configPda, createOfferIx, fetchOffer, fetchSubscription, finalizeIx, offerPda, subscribeIx } from 'allot-sdk'
+import { allotIx, allotment, closeOfferIx, configPda, createOfferIx, fetchOffer, fetchOffers, fetchSubscription, finalizeIx, offerPda, subscribeIx } from 'allot-sdk'
 import { CLUSTER, chainNow, connection, loadKeypair, programFor, send, sleep } from './env'
 import { balanceOf, createMint, giveSol, mintTo, usd } from './tokens'
 
@@ -67,6 +67,7 @@ for (const [i, s] of subscribers.entries()) {
 
 let offer = (await fetchOffer(program, offerKey))!
 assert.equal(offer.unitsRequested, 2_500n)
+assert.ok((await fetchOffers(program)).some((o) => o.key.equals(offerKey)), 'the listing must include the new offer')
 assert.equal(offer.floorDemand, 300n)
 const expected = requests.map((r) => allotment(offer, r))
 log('expected allotment', expected.join(', '))

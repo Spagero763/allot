@@ -2,6 +2,9 @@
 
 What was built, and when. Newest first.
 
+## 19 November
+- Fixed the offers list: it filtered accounts by the wrong size after the upgrade, so the home page showed no books. A program test and the end to end script now pin the size.
+
 ## 17 November
 - Site live on devnet at allot-navy.vercel.app, with the faucet and the demo verifier running as serverless functions.
 - Android release for Solana Mobile: signed web shell that connects through Mobile Wallet Adapter.

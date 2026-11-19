@@ -165,8 +165,10 @@ export function decodeSubscription(key: PublicKey, s: RawSub): Subscription {
   }
 }
 
+export const OFFER_SPACE = 557
+
 export async function fetchOffers(program: Program<Allot>): Promise<Offer[]> {
-  const all = await program.account.offer.all([{ dataSize: program.account.offer.size }])
+  const all = await program.account.offer.all([{ dataSize: OFFER_SPACE }])
   return all.map((a) => decodeOffer(a.publicKey, a.account)).sort((a, b) => b.openTs - a.openTs)
 }
 

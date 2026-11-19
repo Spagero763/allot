@@ -34,7 +34,7 @@ The formula, the yield split, the loss rule and the invariants are written out i
 
 ## What has been verified
 
-**Program tests.** `cargo test -p allot` runs 28 tests in a local VM against the compiled program:
+**Program tests.** `cargo test -p allot` runs 29 tests in a local VM against the compiled program:
 
 - 10 on the allotment, yield, fee and shortfall maths, two of them property tests over 20,000 random books each: supply is never exceeded, the floor is honoured, asking for more never allots less, rounding leaves less than one unit per subscriber, yield is never overpaid and a shortfall is always covered.
 - 15 on the full lifecycle, one of them twelve random books settled end to end with every unit accounted for, including an oversubscribed book with a floor, a failed raise, a cancelled offer, a subscriber leaving, two shortfall cases, and a gated book that rejects missing, foreign, expired and wrong-schema attestations.
