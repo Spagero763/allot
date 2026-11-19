@@ -125,7 +125,7 @@ const wouldReceive = allotment(offer, 250n)
 
 ## Who builds this
 
-Allot is built by [Afolabi Ayomide Emmanuel](https://github.com/Spagero763), a protocol and smart contract developer in Nigeria who also ships the front end. The offer that prompted it was sold to people around him, and the refunds are what they were left waiting for. More of his work is at [spagero.tech](https://spagero.tech).
+Allot is built by [Afolabi Ayomide Emmanuel](https://github.com/Spagero763), a protocol and smart contract developer in Nigeria who also ships the front end. It started from the Dangote Refinery offer, which closed about three times oversubscribed. More of his work is at [spagero.tech](https://spagero.tech).
 
 What was built on which day is in the [build log](CHANGELOG.md).
 
